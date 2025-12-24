@@ -122,14 +122,14 @@
 <body class="bg-gray-50 h-screen flex flex-col text-gray-700">
 
     <div id="toast-container">通知メッセージ</div>
+    <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
 
     <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
         <div class="flex items-center gap-4">
             <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
-                📩 MailCopy Helper <span class="text-xs text-gray-400 font-normal mt-1">v5.3</span>
+                📩 MailCopy Helper <span class="text-xs text-gray-400 font-normal mt-1">v6.3</span>
             </h1>
-            <div class="text-xs text-white font-bold bg-[var(--theme-main)] px-3 py-1 rounded-full opacity-80" id="status-msg">準備OK✨</div>
-        </div>
+            </div>
         
         <div class="flex gap-2">
             <button onclick="setTheme('pink')" class="w-6 h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
@@ -162,6 +162,15 @@
                 <button onclick="downloadAllDraftsAsZip()" class="w-full bg-white border border-gray-300 text-gray-500 font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition text-sm flex justify-center items-center gap-2">
                     📦 全記事をzipで一括保存
                 </button>
+                
+                <div class="flex gap-2 pt-2 border-t border-dashed border-gray-200">
+                    <button onclick="exportData()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+                        📤 バックアップ
+                    </button>
+                    <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+                        📥 復元
+                    </button>
+                </div>
             </div>
 
             <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex gap-2">
@@ -232,9 +241,14 @@
                     </div>
                 </div>
 
-                <button id="btn-wp" onclick="copyBodyOnly()" class="bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-3 px-6 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                <button id="btn-text-copy" onclick="copyTextOnly()" class="bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    WPにコピー
+                    テキスト<br>コピー
+                </button>
+
+                <button id="btn-wp" onclick="copyBodyOnly()" class="bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-2 px-6 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                    WPに<br>コピー
                 </button>
 
                 <button id="btn-copy" onclick="copyHtml()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
@@ -465,6 +479,7 @@
             
             const btnCopy = document.getElementById('btn-copy');
             const btnWp = document.getElementById('btn-wp');
+            const btnTextCopy = document.getElementById('btn-text-copy');
             const btnDelete = document.getElementById('btn-delete');
 
             wrapper.className = ''; 
@@ -484,9 +499,11 @@
                 selectorWrap.style.display = 'flex'; 
                 btnCopy.classList.remove('hidden');
                 btnWp.classList.remove('hidden'); 
+                btnTextCopy.classList.remove('hidden');
             } else {
                 btnCopy.classList.add('hidden');
                 btnWp.classList.add('hidden'); 
+                btnTextCopy.classList.add('hidden');
                 
                 if(mode === 'header') {
                     wrapper.classList.add('mode-header');
@@ -646,13 +663,18 @@
                 loadSettingsList();
                 updateDropdowns();
             }
-            showMessage('💾 自動保存完了');
+            // showMessageは削除したので呼び出さない
         }
 
         // --- 11. 便利機能 ---
         function stripHtml(html) {
             const tmp = document.createElement("DIV");
-            tmp.innerHTML = html;
+            // 改行タグを \n に置換
+            let text = html.replace(/<br\s*\/?>/gi, '\n');
+            text = text.replace(/<\/p>/gi, '\n');
+            text = text.replace(/<\/div>/gi, '\n');
+            
+            tmp.innerHTML = text;
             return tmp.innerText || tmp.textContent || "";
         }
 
@@ -687,6 +709,33 @@
             try {
                 await navigator.clipboard.writeText(finalHtml);
                 showToast('📋 HTMLをコピーしました！');
+            } catch (err) {
+                showToast('❌ コピー失敗');
+            }
+        }
+
+        // テキストコピー (改良版)
+        async function copyTextOnly() {
+            let { hContent, body, fContent } = await getCombinedContent();
+            
+            // 本文は Quill の getText() で取得 (改行が完璧)
+            const textBody = quill.getText();
+            
+            // H/F は自作関数で改行込みのテキスト化
+            const textHeader = stripHtml(hContent);
+            const textFooter = stripHtml(fContent);
+            
+            let finalString = `${textHeader}\n\n${textBody}\n\n${textFooter}`;
+
+            // 名前変換
+            const nameMode = document.getElementById('select-name-convert').value;
+            if (nameMode === 'convert') {
+                finalString = finalString.replaceAll('あなた', '{{nickname}}さん');
+            }
+
+            try {
+                await navigator.clipboard.writeText(finalString);
+                showToast('📄 テキストをコピーしました！');
             } catch (err) {
                 showToast('❌ コピー失敗');
             }
@@ -736,15 +785,51 @@
             });
         }
 
-        function showMessage(msg) {
-            const el = document.getElementById('status-msg');
-            el.textContent = msg;
-            setTimeout(() => el.textContent = '準備OK✨', 2000);
+        // データ移行
+        async function exportData() {
+            if(!confirm('全データをファイルとして保存しますか？')) return;
+            const drafts = await db.drafts.toArray();
+            const headers = await db.headers.toArray();
+            const footers = await db.footers.toArray();
+            const theme = localStorage.getItem('editor-theme') || 'pink';
+            const data = { version: '1.0', date: new Date().toISOString(), theme, drafts, headers, footers };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `mailcopy_backup_${new Date().toLocaleDateString().replace(/\//g,'')}.json`;
+            a.click();
+            showToast('📤 バックアップ完了');
+        }
+
+        async function importData(input) {
+            const file = input.files[0];
+            if(!file) return;
+            if(!confirm('⚠️ 現在のデータは全て上書きされます！よろしいですか？')) {
+                input.value = ''; return;
+            }
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    await db.transaction('rw', db.drafts, db.headers, db.footers, async () => {
+                        await db.drafts.clear(); await db.headers.clear(); await db.footers.clear();
+                        if(data.drafts) await db.drafts.bulkAdd(data.drafts);
+                        if(data.headers) await db.headers.bulkAdd(data.headers);
+                        if(data.footers) await db.footers.bulkAdd(data.footers);
+                    });
+                    if(data.theme) setTheme(data.theme);
+                    showToast('✅ 復元完了！');
+                    setTimeout(() => location.reload(), 1000);
+                } catch(err) {
+                    alert('読み込み失敗');
+                }
+            };
+            reader.readAsText(file);
         }
 
         const triggerSave = () => {
             clearTimeout(autoSaveTimer);
-            showMessage('✍️...'); 
             autoSaveTimer = setTimeout(autoSave, 1000);
         };
         quill.on('text-change', triggerSave);
@@ -752,7 +837,6 @@
         document.getElementById('input-hf-name').addEventListener('input', triggerSave);
         document.getElementById('search-input').addEventListener('input', loadDraftList);
 
-        // 初期化処理: タブのアクティブ状態設定
         switchTab('drafts');
     </script>
 </body>
