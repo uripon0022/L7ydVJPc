@@ -29,7 +29,7 @@
         #editor { 
             height: 60vh; 
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            font-size: 16px;
+            font-size: 16px; /* 初期値 */
         }
         
         /* ツールバー */
@@ -169,13 +169,28 @@
                 </div>
             </div>
 
-            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex gap-2">
-                <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
-                    ＋ヘッダー
-                </button>
-                <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
-                    ＋フッター
-                </button>
+            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-4">
+                <div class="flex gap-2">
+                    <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
+                        ＋ヘッダー
+                    </button>
+                    <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
+                        ＋フッター
+                    </button>
+                </div>
+                
+                <div class="pt-2 border-t border-gray-100">
+                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">🔠 基本文字サイズ (固定)</label>
+                     <select id="setting-font-size" onchange="saveFontSize()" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 cursor-pointer focus:outline-none focus:border-[var(--theme-main)]">
+                         <option value="12px">12px (小)</option>
+                         <option value="14px">14px (やや小)</option>
+                         <option value="16px" selected>16px (標準)</option>
+                         <option value="18px">18px (中)</option>
+                         <option value="20px">20px (大)</option>
+                         <option value="24px">24px (特大)</option>
+                     </select>
+                     <p class="text-[10px] text-gray-400 mt-1 ml-1">※ここで選んだサイズが毎回適用されます</p>
+                </div>
             </div>
 
             <div id="list-container" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></div>
@@ -745,6 +760,11 @@
             const hId = document.getElementById('select-header').value;
             const fId = document.getElementById('select-footer').value;
 
+            // 基本文字サイズ設定を反映（HTMLコピー用）
+            const currentSize = document.getElementById('setting-font-size').value;
+            // エディタの内容をDIVでラップしてフォントサイズを指定
+            body = `<div style="font-size: ${currentSize}; font-family: 'M PLUS Rounded 1c', sans-serif;">${body}</div>`;
+
             let hContent = ''; let fContent = ''; 
             
             if(hId) {
@@ -890,6 +910,18 @@
             reader.readAsText(file);
         }
 
+        // --- フォントサイズ管理 ---
+        function loadFontSize() {
+            const s = localStorage.getItem('default-font-size') || '16px';
+            document.getElementById('setting-font-size').value = s;
+            document.getElementById('editor').style.fontSize = s;
+        }
+        function saveFontSize() {
+            const s = document.getElementById('setting-font-size').value;
+            localStorage.setItem('default-font-size', s);
+            document.getElementById('editor').style.fontSize = s;
+        }
+
         // --- トリガー設定 (入力検知) ---
         const triggerSave = () => {
             clearTimeout(autoSaveTimer);
@@ -909,6 +941,7 @@
 
         // 初期ロード
         switchTab('drafts');
+        loadFontSize(); // フォントサイズ読み込み
     </script>
 </body>
 </html>
