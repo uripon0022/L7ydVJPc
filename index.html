@@ -27,7 +27,7 @@
         body { font-family: 'M PLUS Rounded 1c', sans-serif; }
         
         #editor { 
-            height: 55vh; 
+            height: 60vh; 
             font-family: 'M PLUS Rounded 1c', sans-serif;
             font-size: 16px;
         }
@@ -38,7 +38,7 @@
             background-color: #fff;
             border-bottom: 2px solid var(--theme-soft);
             border-radius: 12px 12px 0 0;
-            padding: 12px;
+            padding: 8px;
         }
         .ql-container.ql-snow {
             border: none;
@@ -58,26 +58,10 @@
             font-weight: bold;
         }
         
-        /* リスト内の削除ボタン */
-        .list-delete-btn {
-            background-color: #fff;
-            border: 1px solid #e5e7eb;
-            color: #9ca3af;
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-        }
-        .list-delete-btn:hover { 
-            background-color: #fee2e2;
-            border-color: #fca5a5;
-            color: #ef4444;
-        }
-        
         /* トースト通知 */
         #toast-container {
             position: fixed;
-            bottom: 30px;
+            bottom: 80px; /* スマホ用バーの上に出るように調整 */
             left: 50%;
             transform: translateX(-50%) translateY(20px);
             background-color: rgba(50, 50, 50, 0.95);
@@ -117,55 +101,67 @@
             color: var(--theme-main);
             background-color: var(--theme-soft);
         }
+
+        /* モバイル用メニュー制御 */
+        .sidebar-open { transform: translateX(0) !important; }
+        .overlay-open { display: block !important; }
     </style>
 </head>
-<body class="bg-gray-50 h-screen flex flex-col text-gray-700">
+<body class="bg-gray-50 h-screen flex flex-col text-gray-700 overflow-hidden">
 
     <div id="toast-container">通知メッセージ</div>
     <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
 
-    <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
-        <div class="flex items-center gap-4">
-            <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
-                📩 MailCopy Helper <span class="text-xs text-gray-400 font-normal mt-1">v6.3</span>
+    <header class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
+        <div class="flex items-center gap-2 md:gap-4 overflow-hidden">
+            <button onclick="toggleSidebar()" class="md:hidden text-2xl text-[var(--theme-main)] p-1">
+                ☰
+            </button>
+            
+            <h1 class="text-lg md:text-xl font-bold text-[var(--theme-main)] flex items-center gap-2 truncate">
+                📩 <span class="hidden md:inline">MailCopy Helper</span> <span class="md:hidden">MailHelper</span>
             </h1>
-            </div>
+            <div id="status-msg" class="text-xs md:text-sm font-bold text-[var(--theme-main)] transition-opacity duration-700 opacity-0 ml-1 whitespace-nowrap"></div>
+        </div>
         
-        <div class="flex gap-2">
-            <button onclick="setTheme('pink')" class="w-6 h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('blue')" class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('green')" class="w-6 h-6 rounded-full bg-green-600 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('black')" class="w-6 h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition"></button>
+        <div class="flex gap-1 md:gap-2 shrink-0">
+            <button onclick="setTheme('pink')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('blue')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('green')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-green-600 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('black')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition"></button>
         </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex flex-1 overflow-hidden relative">
         
-        <aside class="w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 transition-colors duration-300">
+        <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden transition-opacity"></div>
+
+        <aside id="left-sidebar" class="fixed md:relative inset-y-0 left-0 z-40 w-4/5 md:w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
             <div class="flex border-b border-[var(--theme-border)]">
                 <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300">
                     📝 下書き
                 </button>
                 <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
-                    ⚙️ 設定 (H/F)
+                    ⚙️ 設定
                 </button>
+                <button onclick="toggleSidebar()" class="md:hidden px-4 text-gray-400">✕</button>
             </div>
 
             <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
                 <div class="relative">
-                    <input type="text" id="search-input" placeholder="🔍 件名や本文で検索..." 
+                    <input type="text" id="search-input" placeholder="🔍 検索..." 
                         class="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-[var(--theme-border)] outline-none transition">
                 </div>
                 <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
-                    ＋ 新しいメルマガを書く
+                    ＋ 新規作成
                 </button>
                 <button onclick="downloadAllDraftsAsZip()" class="w-full bg-white border border-gray-300 text-gray-500 font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition text-sm flex justify-center items-center gap-2">
-                    📦 全記事をzipで一括保存
+                    📦 Zip保存
                 </button>
                 
                 <div class="flex gap-2 pt-2 border-t border-dashed border-gray-200">
                     <button onclick="exportData()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
-                        📤 バックアップ
+                        📤 保存
                     </button>
                     <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
                         📥 復元
@@ -175,92 +171,105 @@
 
             <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex gap-2">
                 <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
-                    ＋ヘッダー作成
+                    ＋ヘッダー
                 </button>
                 <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
-                    ＋フッター作成
+                    ＋フッター
                 </button>
             </div>
 
-            <div id="list-container" class="flex-1 overflow-y-auto p-4"></div>
+            <div id="list-container" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></div>
         </aside>
 
-        <main class="flex-1 p-8 overflow-y-auto flex flex-col gap-4 bg-[var(--theme-soft)] transition-colors duration-300" id="main-area">
+        <main class="flex-1 flex flex-col overflow-hidden bg-[var(--theme-soft)] transition-colors duration-300 w-full">
             
-            <div id="mode-indicator" class="hidden text-center py-2 rounded-lg font-bold text-white mb-2 shadow-sm"></div>
-
-            <div id="selector-wrapper" class="flex gap-4 p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👑 ヘッダーを選ぶ</label>
-                    <select id="select-header" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-[var(--theme-main)] cursor-pointer">
-                        <option value="">（選択なし）</option>
-                    </select>
-                </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッターを選ぶ</label>
-                    <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-gray-400 cursor-pointer">
-                        <option value="">（選択なし）</option>
-                    </select>
-                </div>
-                <div class="flex-1">
-                    <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前の変換</label>
-                    <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-orange-400 cursor-pointer">
-                        <option value="convert">「あなた」→ {{nickname}}さん</option>
-                        <option value="none">変換しない</option>
-                    </select>
-                </div>
-            </div>
-
-            <div id="hf-name-wrapper" class="hidden">
-                <label class="text-sm font-bold text-gray-500">設定名（例：号外用）</label>
-                <input type="text" id="input-hf-name" 
-                    class="w-full text-lg font-bold border-b-2 border-gray-200 py-1 px-1 focus:outline-none focus:border-[var(--theme-main)] bg-transparent" 
-                    placeholder="名前を入力">
-            </div>
-
-            <div id="subject-wrapper">
-                <input type="text" id="input-subject" 
-                    class="w-full text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent" 
-                    placeholder="メルマガの件名を入力">
-            </div>
-
-            <div class="flex-1 flex flex-col relative">
-                <div id="editor-wrapper" class="">
-                    <div id="editor"></div>
-                </div>
-            </div>
-
-            <div id="action-bar" class="flex justify-end items-stretch gap-3 pt-2">
+            <div class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-4 pb-24 md:pb-8" id="main-area">
                 
-                <div class="relative flex flex-col justify-center items-center">
-                    <button id="btn-delete" onclick="deleteCurrentItem()" class="hidden bg-white border-2 border-red-200 hover:bg-red-50 text-red-500 font-bold py-3 px-6 rounded-full shadow transition transform hover:scale-105 flex items-center gap-2 z-10 h-full">
-                        <span class="text-lg">🗑️</span> 削除
-                    </button>
-                    <div id="delete-confirm-msg" class="hidden absolute top-full mt-2 w-max text-center text-red-500 font-bold text-sm bg-white/95 p-2 rounded-lg border border-red-200 shadow-md animate-pulse z-20">
-                        ⚠️ 本当に削除しますか？<br>（もう一度クリックで実行）
+                <div id="mode-indicator" class="hidden text-center py-2 rounded-lg font-bold text-white mb-2 shadow-sm text-sm"></div>
+
+                <div id="selector-wrapper" class="flex flex-col md:flex-row gap-2 md:gap-4 p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👑 ヘッダー</label>
+                        <select id="select-header" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+                            <option value="">（選択なし）</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッター</label>
+                        <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-gray-400">
+                            <option value="">（選択なし）</option>
+                        </select>
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前変換</label>
+                        <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-orange-400">
+                            <option value="convert">「あなた」→ {{nickname}}さん</option>
+                            <option value="none">変換しない</option>
+                        </select>
                     </div>
                 </div>
 
-                <button id="btn-text-copy" onclick="copyTextOnly()" class="bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-2 px-5 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    テキスト<br>コピー
-                </button>
+                <div id="hf-name-wrapper" class="hidden">
+                    <label class="text-sm font-bold text-gray-500">設定名</label>
+                    <input type="text" id="input-hf-name" 
+                        class="w-full text-lg font-bold border-b-2 border-gray-200 py-1 px-1 focus:outline-none focus:border-[var(--theme-main)] bg-transparent" 
+                        placeholder="名前を入力">
+                </div>
 
-                <button id="btn-wp" onclick="copyBodyOnly()" class="bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-2 px-6 rounded-full shadow transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
-                    WPに<br>コピー
-                </button>
+                <div id="subject-wrapper">
+                    <input type="text" id="input-subject" 
+                        class="w-full text-lg md:text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent" 
+                        placeholder="件名を入力">
+                </div>
 
-                <button id="btn-copy" onclick="copyHtml()" class="bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-8 rounded-full shadow-lg transition transform hover:scale-105 flex items-center justify-center gap-2 h-full">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                    <div class="text-left leading-tight">
-                        <div class="text-xs font-normal opacity-90">7th-mail用</div>
-                        <div class="text-base font-bold">HTMLコピー</div>
+                <div class="flex-1 flex flex-col relative pb-8">
+                    <div id="editor-wrapper" class="">
+                        <div id="editor"></div>
                     </div>
-                </button>
+                </div>
+            </div>
+
+            <div id="right-sidebar" class="hidden md:flex w-48 bg-white/60 border-l border-[var(--theme-border)] p-4 flex-col backdrop-blur-sm z-10 overflow-y-auto">
+                <div class="flex flex-col gap-3 w-full pt-4">
+                    <button id="btn-text-copy" onclick="copyTextOnly()" class="w-full bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span class="text-sm">テキスト<br>コピー</span>
+                    </button>
+                    <button id="btn-wp" onclick="copyBodyOnly()" class="w-full bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                        <span class="text-sm">WPに<br>コピー</span>
+                    </button>
+                    <button id="btn-copy" onclick="copyHtml()" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-2 rounded-xl shadow-lg transition transform hover:scale-105 flex flex-col items-center justify-center gap-1">
+                        <div class="text-[10px] font-normal opacity-80">7th-mail用</div>
+                        <div class="text-sm font-bold flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                            HTMLコピー
+                        </div>
+                    </button>
+                    <div class="relative w-full flex flex-col items-center mt-4">
+                        <button id="btn-delete" onclick="deleteCurrentItem()" class="hidden w-full bg-white border-2 border-red-200 hover:bg-red-50 text-red-500 font-bold py-2 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
+                            <span class="text-lg">🗑️</span> 削除
+                        </button>
+                        <div id="delete-confirm-msg" class="hidden absolute top-full mt-2 w-48 text-center text-red-500 font-bold text-xs bg-white p-2 rounded-lg border border-red-200 shadow-md animate-pulse z-20">
+                            ⚠️ 本当に削除しますか？<br>（もう一度クリック）
+                        </div>
+                    </div>
+                </div>
             </div>
 
         </main>
+    </div>
+
+    <div id="mobile-toolbar" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex gap-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
+        <button onclick="copyTextOnly()" class="flex-1 bg-white border-2 border-gray-400 text-gray-600 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+            📄 テキスト
+        </button>
+        <button onclick="copyHtml()" class="flex-1 bg-[var(--theme-main)] text-white font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+            📩 HTML
+        </button>
+        <button onclick="deleteCurrentItem()" id="btn-delete-mobile" class="w-12 bg-red-50 border border-red-200 text-red-500 font-bold py-2 rounded-lg text-xs flex items-center justify-center hidden">
+            🗑️
+        </button>
     </div>
 
     <script>
@@ -363,7 +372,11 @@
         function resetDeleteState() {
             deletePending = false;
             document.getElementById('delete-confirm-msg').classList.add('hidden');
-            document.getElementById('btn-delete').classList.remove('bg-red-50', 'border-red-400');
+            const btn = document.getElementById('btn-delete');
+            const btnMob = document.getElementById('btn-delete-mobile');
+            btn.classList.remove('bg-red-50', 'border-red-400');
+            btnMob.classList.remove('bg-red-500', 'text-white');
+            btnMob.textContent = '🗑️';
         }
 
         // --- 6. タブ切り替え ---
@@ -428,7 +441,10 @@
                         <div class="text-xs text-gray-400 mt-1">${item.updatedAt}</div>
                     </div>
                 `;
-                div.onclick = () => loadDraft(item.id);
+                div.onclick = () => {
+                    loadDraft(item.id);
+                    if(window.innerWidth < 768) toggleSidebar(); // スマホなら選択後に閉じる
+                };
                 listEl.appendChild(div);
             });
             updateDropdowns();
@@ -464,7 +480,10 @@
                     <div class="text-xs text-gray-400 mt-1">更新: ${item.updatedAt}</div>
                 </div>
             `;
-            div.onclick = () => loadHFEditor(type, item.id);
+            div.onclick = () => {
+                loadHFEditor(type, item.id);
+                if(window.innerWidth < 768) toggleSidebar();
+            };
             container.appendChild(div);
         }
 
@@ -481,6 +500,7 @@
             const btnWp = document.getElementById('btn-wp');
             const btnTextCopy = document.getElementById('btn-text-copy');
             const btnDelete = document.getElementById('btn-delete');
+            const btnDeleteMobile = document.getElementById('btn-delete-mobile');
 
             wrapper.className = ''; 
             subjectWrap.style.display = 'none';
@@ -490,8 +510,10 @@
 
             if (hasId) {
                 btnDelete.classList.remove('hidden');
+                btnDeleteMobile.classList.remove('hidden');
             } else {
                 btnDelete.classList.add('hidden');
+                btnDeleteMobile.classList.add('hidden');
             }
 
             if(mode === 'draft') {
@@ -519,6 +541,14 @@
             }
         }
 
+        // --- モバイル用サイドバー切替 ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('left-sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            sidebar.classList.toggle('sidebar-open');
+            overlay.classList.toggle('overlay-open');
+        }
+
         // --- 操作ロジック ---
 
         function createNew() {
@@ -528,6 +558,7 @@
             document.getElementById('input-subject').value = '';
             quill.root.innerHTML = ''; 
             loadDraftList();
+            if(window.innerWidth < 768) toggleSidebar();
         }
 
         async function loadDraft(id) {
@@ -550,6 +581,7 @@
             quill.root.innerHTML = '';
             loadSettingsList();
             showToast(type === 'header' ? '👑 新しいヘッダー' : '👣 新しいフッター');
+            if(window.innerWidth < 768) toggleSidebar();
         }
 
         async function loadHFEditor(type, id) {
@@ -570,12 +602,18 @@
             if(!currentId) return;
 
             const btn = document.getElementById('btn-delete');
+            const btnMob = document.getElementById('btn-delete-mobile');
             const msg = document.getElementById('delete-confirm-msg');
 
             if (!deletePending) {
                 deletePending = true;
                 msg.classList.remove('hidden');
                 btn.classList.add('bg-red-50', 'border-red-400');
+                
+                // モバイルボタンも確認モードに
+                btnMob.classList.add('bg-red-500', 'text-white');
+                btnMob.textContent = '確定';
+                showToast('⚠️ もう一度押すと削除');
                 return;
             }
 
@@ -627,18 +665,40 @@
             fSelect.value = currentF;
         }
 
-        // --- 10. 自動保存 ---
+        // --- ステータス表示制御 ---
+        let statusTimer = null;
+        const statusEl = document.getElementById('status-msg');
+
+        function updateHeaderStatus(msg, autoHide = false) {
+            if (!statusEl) return;
+            if (statusTimer) clearTimeout(statusTimer);
+            
+            statusEl.textContent = msg;
+            statusEl.classList.remove('opacity-0'); // フワッと表示
+
+            if (autoHide) {
+                // 1.5秒後にフェードアウト開始
+                statusTimer = setTimeout(() => {
+                    statusEl.classList.add('opacity-0');
+                }, 1500);
+            }
+        }
+
+        // --- 10. 自動保存 (ステータス表示付き) ---
         async function autoSave() {
+            // 削除保留中は保存しない
+            if (deletePending) return;
+
             const content = quill.root.innerHTML;
             const nowObj = new Date();
             const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             const sortDate = nowObj.toISOString();
 
-            if (deletePending) return;
-
             if(editMode === 'draft') {
                 const subject = document.getElementById('input-subject').value;
                 const text = quill.getText().trim();
+                
+                // タイトルも本文も空なら保存しない
                 if (!currentId && !subject && text.length === 0) return;
                 
                 const data = { subject, content, sortDate, updatedAt: displayDate };
@@ -646,7 +706,7 @@
                     await db.drafts.update(currentId, data);
                 } else {
                     currentId = await db.drafts.add(data);
-                    setEditorUI('draft', true); 
+                    setEditorUI('draft', true); // 削除ボタンなどを表示
                 }
                 loadDraftList();
             } else {
@@ -658,15 +718,17 @@
                 } else {
                     const newId = await table.add(data);
                     currentId = newId;
-                    setEditorUI(editMode, true); 
+                    setEditorUI(editMode, true);
                 }
                 loadSettingsList();
                 updateDropdowns();
             }
-            // showMessageは削除したので呼び出さない
+            
+            // 保存完了メッセージ（1.5秒後に消える）
+            updateHeaderStatus('☁️ 自動保存しました', true);
         }
 
-        // --- 11. 便利機能 ---
+        // --- 11. 便利機能 (コピー・Zip・バックアップ) ---
         function stripHtml(html) {
             const tmp = document.createElement("DIV");
             // 改行タグを \n に置換
@@ -828,15 +890,24 @@
             reader.readAsText(file);
         }
 
+        // --- トリガー設定 (入力検知) ---
         const triggerSave = () => {
             clearTimeout(autoSaveTimer);
+            
+            // 入力中は「執筆中」を表示（消さない）
+            updateHeaderStatus('✍️ 執筆中...');
+            
+            // 入力が止まって1秒後に保存実行
             autoSaveTimer = setTimeout(autoSave, 1000);
         };
+
+        // イベントリスナー登録
         quill.on('text-change', triggerSave);
         document.getElementById('input-subject').addEventListener('input', triggerSave);
         document.getElementById('input-hf-name').addEventListener('input', triggerSave);
         document.getElementById('search-input').addEventListener('input', loadDraftList);
 
+        // 初期ロード
         switchTab('drafts');
     </script>
 </body>
