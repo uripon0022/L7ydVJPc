@@ -51,11 +51,31 @@
         .nav-item { 
             @apply p-3 mb-2 rounded-lg cursor-pointer transition border-l-4 border-transparent hover:bg-[var(--theme-soft)] relative flex justify-between items-center; 
             border-bottom: 1px solid var(--theme-soft);
+            margin-left: 8px; 
+            margin-right: 8px;
         }
         .nav-item.selected { 
             background-color: var(--theme-soft);
             border-left-color: var(--theme-main);
             font-weight: bold;
+        }
+
+        /* 年月区切りヘッダー */
+        .date-header {
+            position: sticky;
+            top: 0;
+            background-color: rgba(249, 250, 251, 0.95); /* gray-50 backdrop */
+            backdrop-filter: blur(4px);
+            color: #6b7280; /* gray-500 */
+            font-size: 0.75rem;
+            font-weight: bold;
+            padding: 4px 12px;
+            margin-top: 8px;
+            margin-bottom: 4px;
+            border-bottom: 1px solid #e5e7eb;
+            z-index: 5;
+            display: flex;
+            align-items: center;
         }
         
         /* トースト通知 */
@@ -193,7 +213,7 @@
                 </div>
             </div>
 
-            <div id="list-container" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></div>
+            <div id="list-container" class="flex-1 overflow-y-auto pb-20 md:pb-4"></div>
         </aside>
 
         <main class="flex-1 flex flex-col overflow-hidden bg-[var(--theme-soft)] transition-colors duration-300 w-full relative">
@@ -277,13 +297,13 @@
 
     <div id="mobile-toolbar" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex gap-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
         <button onclick="copyTextOnly()" class="flex-1 bg-white border-2 border-gray-400 text-gray-600 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
-            📄 テキストコピー
+            📄 テキスト
         </button>
         <button onclick="copyBodyOnly()" class="flex-1 bg-white border-2 border-blue-400 text-blue-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
-            💻 WPコピー
+            💻 WP
         </button>
         <button onclick="copyHtml()" class="flex-1 bg-[var(--theme-main)] text-white font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
-            📩 HTMLコピー
+            📩 HTML
         </button>
         <button onclick="deleteCurrentItem()" id="btn-delete-mobile" class="w-10 bg-red-50 border border-red-200 text-red-500 font-bold py-2 rounded-lg text-xs flex items-center justify-center hidden">
             🗑️
@@ -319,8 +339,8 @@
         Quill.register(Size, true);
 
         const db = new Dexie("MailEditorDB");
-        db.version(6).stores({
-            drafts: '++id, subject, content, sortDate, updatedAt', 
+        db.version(7).stores({
+            drafts: '++id, subject, content, sortDate, createdAt, updatedAt', 
             headers: '++id, name, content, sortDate, updatedAt',
             footers: '++id, name, content, sortDate, updatedAt'
         });
@@ -424,13 +444,22 @@
             }
         }
 
-        // --- 7. リスト描画 ---
+        // --- 7. リスト描画 (作成日ベース / NaN回避) ---
         async function loadDraftList() {
             let keyword = document.getElementById('search-input').value.toLowerCase().trim();
             const safeKeyword = keyword.replace(/\s+/g, '');
 
-            let drafts = await db.drafts.orderBy('sortDate').reverse().toArray();
+            let drafts = await db.drafts.toArray();
             
+            // 作成日順にソート (新しい順)
+            drafts.sort((a, b) => {
+                const da = a.createdAt || a.sortDate; // 旧データ対応
+                const db = b.createdAt || b.sortDate;
+                if (da < db) return 1;
+                if (da > db) return -1;
+                return 0;
+            });
+
             if (safeKeyword) {
                 drafts = drafts.filter(d => {
                     const tmpDiv = document.createElement('div');
@@ -446,9 +475,31 @@
 
             if (drafts.length === 0) {
                 listEl.innerHTML = `<div class="p-4 text-sm text-gray-400 text-center">該当なし</div>`;
+                return;
             }
 
+            let currentMonth = '';
+
             drafts.forEach(item => {
+                // 年月ヘッダー (NaN回避ロジック)
+                let dateKey = item.createdAt || item.sortDate;
+                let d = new Date(dateKey);
+                
+                // 日付が無効なら現在日時を入れておく(緊急回避)
+                if(isNaN(d.getTime())) {
+                    d = new Date();
+                }
+
+                const monthStr = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+                
+                if (monthStr !== currentMonth) {
+                    currentMonth = monthStr;
+                    const header = document.createElement('div');
+                    header.className = 'date-header';
+                    header.textContent = currentMonth;
+                    listEl.appendChild(header);
+                }
+
                 const div = document.createElement('div');
                 const isSelected = (editMode === 'draft' && currentId === item.id);
                 div.className = `nav-item ${isSelected ? 'selected' : ''}`;
@@ -456,7 +507,7 @@
                 div.innerHTML = `
                     <div class="flex-1 min-w-0">
                         <div class="font-bold text-gray-700 truncate">${item.subject || '(無題)'}</div>
-                        <div class="text-xs text-gray-400 mt-1">${item.updatedAt}</div>
+                        <div class="text-xs text-gray-400 mt-1">更新: ${item.updatedAt}</div>
                     </div>
                 `;
                 div.onclick = () => {
@@ -587,7 +638,7 @@
                 setEditorUI('draft', true); 
                 document.getElementById('input-subject').value = draft.subject;
                 quill.root.innerHTML = draft.content;
-                loadDraftList();
+                // ここでのリスト再読み込みは不要（開いただけで更新かけないため）
             }
         }
 
@@ -702,7 +753,7 @@
             }
         }
 
-        // --- 10. 自動保存 (ステータス表示付き) ---
+        // --- 10. 自動保存 (作成日保持) ---
         async function autoSave() {
             // 削除保留中は保存しない
             if (deletePending) return;
@@ -710,7 +761,7 @@
             const content = quill.root.innerHTML;
             const nowObj = new Date();
             const displayDate = nowObj.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            const sortDate = nowObj.toISOString();
+            const isoDate = nowObj.toISOString();
 
             if(editMode === 'draft') {
                 const subject = document.getElementById('input-subject').value;
@@ -719,18 +770,24 @@
                 // タイトルも本文も空なら保存しない
                 if (!currentId && !subject && text.length === 0) return;
                 
-                const data = { subject, content, sortDate, updatedAt: displayDate };
+                let data = { subject, content, updatedAt: displayDate };
+                
                 if (currentId) {
+                    // 更新時は作成日(createdAt)を触らない
                     await db.drafts.update(currentId, data);
                 } else {
+                    // 新規作成時のみ作成日を記録
+                    data.createdAt = isoDate;
+                    data.sortDate = isoDate; // 念のため旧ソート用も入れておく
                     currentId = await db.drafts.add(data);
-                    setEditorUI('draft', true); // 削除ボタンなどを表示
+                    setEditorUI('draft', true); 
+                    loadDraftList(); // 新規作成時のみリスト更新
                 }
-                loadDraftList();
+                
             } else {
                 const name = document.getElementById('input-hf-name').value || '名称未設定';
                 const table = editMode === 'header' ? db.headers : db.footers;
-                const data = { name, content, sortDate, updatedAt: displayDate };
+                const data = { name, content, sortDate: isoDate, updatedAt: displayDate };
                 if (currentId) {
                     await table.update(currentId, data);
                 } else {
@@ -742,7 +799,7 @@
                 updateDropdowns();
             }
             
-            // 保存完了メッセージ（1.5秒後に消える）
+            // 保存完了メッセージ
             updateHeaderStatus('☁️ 自動保存しました', true);
         }
 
@@ -839,7 +896,7 @@
         async function downloadAllDraftsAsZip() {
             if(!confirm('すべての下書きをzipファイルでダウンロードしますか？')) return;
 
-            const drafts = await db.drafts.orderBy('sortDate').reverse().toArray();
+            const drafts = await db.drafts.toArray(); // 全件取得
             if(drafts.length === 0) {
                 showToast('⚠️ 保存する下書きがありません');
                 return;
@@ -937,7 +994,13 @@
         };
 
         // イベントリスナー登録
-        quill.on('text-change', triggerSave);
+        // 修正点: 'api'による変更（loadDraftでの代入など）は無視し、'user'のみ検知する
+        quill.on('text-change', (delta, oldDelta, source) => {
+            if (source === 'user') {
+                triggerSave();
+            }
+        });
+        
         document.getElementById('input-subject').addEventListener('input', triggerSave);
         document.getElementById('input-hf-name').addEventListener('input', triggerSave);
         document.getElementById('search-input').addEventListener('input', loadDraftList);
