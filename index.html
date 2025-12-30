@@ -296,6 +296,9 @@
     <button onclick="copyTextOnly()" class="flex-1 bg-white border-2 border-gray-400 text-gray-600 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
       📄 テキスト
     </button>
+    <button onclick="copyBodyOnly()" id="btn-wp-mobile" class="flex-1 bg-white border-2 border-blue-400 text-blue-500 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
+      WP
+    </button>
     <button onclick="copyHtml()" class="flex-1 bg-[var(--theme-main)] text-white font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
       📩 HTML
     </button>
@@ -614,6 +617,9 @@
       const btnDeleteMobile = document.getElementById('btn-delete-mobile');
       const btnDuplicate = document.getElementById('btn-duplicate');
       const btnDuplicateMobile = document.getElementById('btn-duplicate-mobile');
+      
+      // スマホ版WPボタンの制御
+      const btnWpMobile = document.getElementById('btn-wp-mobile');
 
       wrapper.className = ''; 
       subjectWrap.style.display = 'none';
@@ -639,10 +645,12 @@
         btnCopy.classList.remove('hidden');
         btnWp.classList.remove('hidden'); 
         btnTextCopy.classList.remove('hidden');
+        btnWpMobile.classList.remove('hidden'); // 表示
       } else {
         btnCopy.classList.add('hidden');
         btnWp.classList.add('hidden'); 
         btnTextCopy.classList.add('hidden');
+        btnWpMobile.classList.add('hidden'); // 非表示
         
         if(mode === 'header') {
           wrapper.classList.add('mode-header');
