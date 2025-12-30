@@ -18,10 +18,10 @@
     <style>
         /* ▼▼▼ テーマカラー変数定義 ▼▼▼ */
         :root {
-            --theme-main: #16a34a;   /* main */
-            --theme-soft: #ecfdf5;   /* soft */
-            --theme-border: #86efac; /* border */
-            --theme-hover: #15803d;  /* hover */
+            --theme-main: #ec4899;   /* main */
+            --theme-soft: #fdf2f8;   /* soft */
+            --theme-border: #fbcfe8; /* border */
+            --theme-hover: #db2777;  /* hover */
         }
 
         body { font-family: 'M PLUS Rounded 1c', sans-serif; }
@@ -29,7 +29,7 @@
         #editor { 
             height: 60vh; 
             font-family: 'M PLUS Rounded 1c', sans-serif;
-            font-size: 16px; /* 初期値 */
+            font-size: 16px;
         }
         
         /* ツールバー */
@@ -38,7 +38,7 @@
             background-color: #fff;
             border-bottom: 2px solid var(--theme-soft);
             border-radius: 12px 12px 0 0;
-            padding: 8px;
+            padding: 12px;
         }
         .ql-container.ql-snow {
             border: none;
@@ -51,8 +51,7 @@
         .nav-item { 
             @apply p-3 mb-2 rounded-lg cursor-pointer transition border-l-4 border-transparent hover:bg-[var(--theme-soft)] relative flex justify-between items-center; 
             border-bottom: 1px solid var(--theme-soft);
-            margin-left: 8px; 
-            margin-right: 8px;
+            margin-left: 4px; margin-right: 4px; /* 見出しとの階層差 */
         }
         .nav-item.selected { 
             background-color: var(--theme-soft);
@@ -64,24 +63,21 @@
         .date-header {
             position: sticky;
             top: 0;
-            background-color: rgba(249, 250, 251, 0.95); /* gray-50 backdrop */
-            backdrop-filter: blur(4px);
-            color: #6b7280; /* gray-500 */
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #9ca3af; /* gray-400 */
             font-size: 0.75rem;
             font-weight: bold;
-            padding: 4px 12px;
-            margin-top: 8px;
+            padding: 6px 12px;
+            margin-top: 12px;
             margin-bottom: 4px;
-            border-bottom: 1px solid #e5e7eb;
+            border-bottom: 1px solid #f3f4f6;
             z-index: 5;
-            display: flex;
-            align-items: center;
         }
         
         /* トースト通知 */
         #toast-container {
             position: fixed;
-            bottom: 80px; /* スマホ用バーの上に出るように調整 */
+            bottom: 80px; /* スマホツールバーの上 */
             left: 50%;
             transform: translateX(-50%) translateY(20px);
             background-color: rgba(50, 50, 50, 0.95);
@@ -132,23 +128,20 @@
     <div id="toast-container">通知メッセージ</div>
     <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
 
-    <header class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
-        <div class="flex items-center gap-2 md:gap-4 overflow-hidden">
-            <button onclick="toggleSidebar()" class="md:hidden text-2xl text-[var(--theme-main)] p-1">
-                ☰
-            </button>
-            
-            <h1 class="text-lg md:text-xl font-bold text-[var(--theme-main)] flex items-center gap-2 truncate">
-                📩 <span class="hidden md:inline">MailCopy Helper</span> <span class="md:hidden">MailHelper</span>
+    <header class="bg-white/80 backdrop-blur-md shadow-sm p-4 flex justify-between items-center z-10 border-b border-[var(--theme-border)] transition-colors duration-300">
+        <div class="flex items-center gap-4">
+            <button onclick="toggleSidebar()" class="md:hidden text-2xl text-[var(--theme-main)] p-1">☰</button>
+            <h1 class="text-xl font-bold text-[var(--theme-main)] flex items-center gap-2">
+                📩 MailCopy Helper
             </h1>
             <div id="status-msg" class="text-xs md:text-sm font-bold text-[var(--theme-main)] transition-opacity duration-700 opacity-0 ml-1 whitespace-nowrap"></div>
         </div>
         
-        <div class="flex gap-1 md:gap-2 shrink-0">
-            <button onclick="setTheme('pink')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('blue')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-blue-500 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('green')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-green-600 border-2 border-white shadow hover:scale-110 transition"></button>
-            <button onclick="setTheme('black')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition"></button>
+        <div class="flex gap-2">
+            <button onclick="setTheme('pink')" class="w-6 h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('blue')" class="w-6 h-6 rounded-full bg-blue-500 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('green')" class="w-6 h-6 rounded-full bg-green-600 border-2 border-white shadow hover:scale-110 transition"></button>
+            <button onclick="setTheme('black')" class="w-6 h-6 rounded-full bg-gray-800 border-2 border-white shadow hover:scale-110 transition"></button>
         </div>
     </header>
 
@@ -162,26 +155,26 @@
                     📝 下書き
                 </button>
                 <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
-                    ⚙️ 設定
+                    ⚙️ 設定 (H/F)
                 </button>
                 <button onclick="toggleSidebar()" class="md:hidden px-4 text-gray-400">✕</button>
             </div>
 
             <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
                 <div class="relative">
-                    <input type="text" id="search-input" placeholder="🔍 検索..." 
+                    <input type="text" id="search-input" placeholder="🔍 件名や本文で検索..." 
                         class="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-[var(--theme-border)] outline-none transition">
                 </div>
                 <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
-                    ＋ 新規作成
+                    ＋ 新しいメルマガを書く
                 </button>
                 <button onclick="downloadAllDraftsAsZip()" class="w-full bg-white border border-gray-300 text-gray-500 font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition text-sm flex justify-center items-center gap-2">
-                    📦 Zip保存
+                    📦 全記事をzipで一括保存
                 </button>
                 
                 <div class="flex gap-2 pt-2 border-t border-dashed border-gray-200">
                     <button onclick="exportData()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
-                        📤 保存
+                        📤 バックアップ
                     </button>
                     <button onclick="document.getElementById('import-file').click()" class="flex-1 bg-gray-50 border border-gray-300 text-gray-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
                         📥 復元
@@ -189,55 +182,40 @@
                 </div>
             </div>
 
-            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-4">
-                <div class="flex gap-2">
-                    <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
-                        ＋ヘッダー
-                    </button>
-                    <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
-                        ＋フッター
-                    </button>
-                </div>
-                
-                <div class="pt-2 border-t border-gray-100">
-                     <label class="block text-xs font-bold text-gray-400 mb-1 ml-1">🔠 基本文字サイズ (固定)</label>
-                     <select id="setting-font-size" onchange="saveFontSize()" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 cursor-pointer focus:outline-none focus:border-[var(--theme-main)]">
-                         <option value="12px">12px (小)</option>
-                         <option value="14px">14px (やや小)</option>
-                         <option value="16px" selected>16px (標準)</option>
-                         <option value="18px">18px (中)</option>
-                         <option value="20px">20px (大)</option>
-                         <option value="24px">24px (特大)</option>
-                     </select>
-                     <p class="text-[10px] text-gray-400 mt-1 ml-1">※ここで選んだサイズが毎回適用されます</p>
-                </div>
+            <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex gap-2">
+                <button onclick="createHF('header')" class="flex-1 bg-blue-50 text-blue-600 border border-blue-200 font-bold py-2 px-2 rounded-lg hover:bg-blue-100 text-sm">
+                    ＋ヘッダー作成
+                </button>
+                <button onclick="createHF('footer')" class="flex-1 bg-green-50 text-green-600 border border-green-200 font-bold py-2 px-2 rounded-lg hover:bg-green-100 text-sm">
+                    ＋フッター作成
+                </button>
             </div>
 
-            <div id="list-container" class="flex-1 overflow-y-auto pb-20 md:pb-4"></div>
+            <div id="list-container" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></div>
         </aside>
 
         <main class="flex-1 flex flex-col overflow-hidden bg-[var(--theme-soft)] transition-colors duration-300 w-full relative">
             
             <div class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-4 pb-24 md:pb-8" id="main-area">
                 
-                <div id="mode-indicator" class="hidden text-center py-2 rounded-lg font-bold text-white mb-2 shadow-sm text-sm"></div>
+                <div id="mode-indicator" class="hidden text-center py-2 rounded-lg font-bold text-white mb-2 shadow-sm"></div>
 
                 <div id="selector-wrapper" class="flex flex-col md:flex-row gap-2 md:gap-4 p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
                     <div class="flex-1">
-                        <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👑 ヘッダー</label>
-                        <select id="select-header" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+                        <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👑 ヘッダーを選ぶ</label>
+                        <select id="select-header" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-[var(--theme-main)] cursor-pointer">
                             <option value="">（選択なし）</option>
                         </select>
                     </div>
                     <div class="flex-1">
-                        <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッター</label>
-                        <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-gray-400">
+                        <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッターを選ぶ</label>
+                        <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-gray-400 cursor-pointer">
                             <option value="">（選択なし）</option>
                         </select>
                     </div>
                     <div class="flex-1">
-                        <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前変換</label>
-                        <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-orange-400">
+                        <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前の変換</label>
+                        <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold focus:outline-none focus:border-orange-400 cursor-pointer">
                             <option value="convert">「あなた」→ {{nickname}}さん</option>
                             <option value="none">変換しない</option>
                         </select>
@@ -245,7 +223,7 @@
                 </div>
 
                 <div id="hf-name-wrapper" class="hidden">
-                    <label class="text-sm font-bold text-gray-500">設定名</label>
+                    <label class="text-sm font-bold text-gray-500">設定名（例：号外用）</label>
                     <input type="text" id="input-hf-name" 
                         class="w-full text-lg font-bold border-b-2 border-gray-200 py-1 px-1 focus:outline-none focus:border-[var(--theme-main)] bg-transparent" 
                         placeholder="名前を入力">
@@ -253,8 +231,8 @@
 
                 <div id="subject-wrapper">
                     <input type="text" id="input-subject" 
-                        class="w-full text-lg md:text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent" 
-                        placeholder="件名を入力">
+                        class="w-full text-xl font-bold placeholder-[var(--theme-border)] text-gray-700 border-b-2 border-[var(--theme-border)] py-2 px-1 focus:outline-none focus:border-[var(--theme-main)] transition bg-transparent" 
+                        placeholder="メルマガの件名を入力">
                 </div>
 
                 <div class="flex-1 flex flex-col relative pb-8">
@@ -267,14 +245,17 @@
 
         <div id="right-sidebar" class="hidden md:flex w-48 bg-white/60 border-l border-[var(--theme-border)] p-4 flex-col backdrop-blur-sm z-10 overflow-y-auto">
             <div class="flex flex-col gap-3 w-full pt-4">
+                
                 <button id="btn-text-copy" onclick="copyTextOnly()" class="w-full bg-white border-2 border-gray-400 text-gray-600 hover:bg-gray-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                     <span class="text-sm">テキスト<br>コピー</span>
                 </button>
+
                 <button id="btn-wp" onclick="copyBodyOnly()" class="w-full bg-white border-2 border-blue-400 text-blue-500 hover:bg-blue-50 font-bold py-3 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
                     <span class="text-sm">WPに<br>コピー</span>
                 </button>
+
                 <button id="btn-copy" onclick="copyHtml()" class="w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-2 rounded-xl shadow-lg transition transform hover:scale-105 flex flex-col items-center justify-center gap-1">
                     <div class="text-[10px] font-normal opacity-80">7th-mail用</div>
                     <div class="text-sm font-bold flex items-center gap-2">
@@ -282,6 +263,7 @@
                         HTMLコピー
                     </div>
                 </button>
+
                 <div class="relative w-full flex flex-col items-center mt-4">
                     <button id="btn-delete" onclick="deleteCurrentItem()" class="hidden w-full bg-white border-2 border-red-200 hover:bg-red-50 text-red-500 font-bold py-2 px-2 rounded-xl shadow transition transform hover:scale-105 flex items-center justify-center gap-2">
                         <span class="text-lg">🗑️</span> 削除
@@ -290,6 +272,7 @@
                         ⚠️ 本当に削除しますか？<br>（もう一度クリック）
                     </div>
                 </div>
+
             </div>
         </div>
 
@@ -338,6 +321,7 @@
         Size.whitelist = ['10px', '11px', '12px', '13px', '14px', '16px', '18px', '20px', '24px', '36px', '40px', '48px'];
         Quill.register(Size, true);
 
+        // ★★★ DBバージョンアップ（作成日追加） ★★★
         const db = new Dexie("MailEditorDB");
         db.version(7).stores({
             drafts: '++id, subject, content, sortDate, createdAt, updatedAt', 
@@ -444,22 +428,30 @@
             }
         }
 
-        // --- 7. リスト描画 (作成日ベース / NaN回避) ---
+        // --- モバイル用サイドバー切替 ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('left-sidebar');
+            const overlay = document.getElementById('mobile-overlay');
+            sidebar.classList.toggle('sidebar-open');
+            overlay.classList.toggle('overlay-open');
+        }
+
+        // --- 7. リスト描画（日付グループ化＆作成日順） ---
         async function loadDraftList() {
             let keyword = document.getElementById('search-input').value.toLowerCase().trim();
             const safeKeyword = keyword.replace(/\s+/g, '');
 
             let drafts = await db.drafts.toArray();
             
-            // 作成日順にソート (新しい順)
+            // 作成日順（降順）にソート
             drafts.sort((a, b) => {
-                const da = a.createdAt || a.sortDate; // 旧データ対応
+                const da = a.createdAt || a.sortDate;
                 const db = b.createdAt || b.sortDate;
                 if (da < db) return 1;
                 if (da > db) return -1;
                 return 0;
             });
-
+            
             if (safeKeyword) {
                 drafts = drafts.filter(d => {
                     const tmpDiv = document.createElement('div');
@@ -481,14 +473,10 @@
             let currentMonth = '';
 
             drafts.forEach(item => {
-                // 年月ヘッダー (NaN回避ロジック)
+                // 年月ヘッダー処理
                 let dateKey = item.createdAt || item.sortDate;
                 let d = new Date(dateKey);
-                
-                // 日付が無効なら現在日時を入れておく(緊急回避)
-                if(isNaN(d.getTime())) {
-                    d = new Date();
-                }
+                if(isNaN(d.getTime())) d = new Date();
 
                 const monthStr = `${d.getFullYear()}年${d.getMonth() + 1}月`;
                 
@@ -512,7 +500,7 @@
                 `;
                 div.onclick = () => {
                     loadDraft(item.id);
-                    if(window.innerWidth < 768) toggleSidebar(); // スマホなら選択後に閉じる
+                    if(window.innerWidth < 768) toggleSidebar(); 
                 };
                 listEl.appendChild(div);
             });
@@ -610,14 +598,6 @@
             }
         }
 
-        // --- モバイル用サイドバー切替 ---
-        function toggleSidebar() {
-            const sidebar = document.getElementById('left-sidebar');
-            const overlay = document.getElementById('mobile-overlay');
-            sidebar.classList.toggle('sidebar-open');
-            overlay.classList.toggle('overlay-open');
-        }
-
         // --- 操作ロジック ---
 
         function createNew() {
@@ -638,7 +618,7 @@
                 setEditorUI('draft', true); 
                 document.getElementById('input-subject').value = draft.subject;
                 quill.root.innerHTML = draft.content;
-                // ここでのリスト再読み込みは不要（開いただけで更新かけないため）
+                // 注意: ここではリスト再読み込みをしない（順番が変わるのを防ぐため）
             }
         }
 
@@ -678,8 +658,6 @@
                 deletePending = true;
                 msg.classList.remove('hidden');
                 btn.classList.add('bg-red-50', 'border-red-400');
-                
-                // モバイルボタンも確認モードに
                 btnMob.classList.add('bg-red-500', 'text-white');
                 btnMob.textContent = '確定';
                 showToast('⚠️ もう一度押すと削除');
@@ -743,19 +721,17 @@
             if (statusTimer) clearTimeout(statusTimer);
             
             statusEl.textContent = msg;
-            statusEl.classList.remove('opacity-0'); // フワッと表示
+            statusEl.classList.remove('opacity-0'); 
 
             if (autoHide) {
-                // 1.5秒後にフェードアウト開始
                 statusTimer = setTimeout(() => {
                     statusEl.classList.add('opacity-0');
                 }, 1500);
             }
         }
 
-        // --- 10. 自動保存 (作成日保持) ---
+        // --- 10. 自動保存（作成日保持） ---
         async function autoSave() {
-            // 削除保留中は保存しない
             if (deletePending) return;
 
             const content = quill.root.innerHTML;
@@ -767,23 +743,21 @@
                 const subject = document.getElementById('input-subject').value;
                 const text = quill.getText().trim();
                 
-                // タイトルも本文も空なら保存しない
                 if (!currentId && !subject && text.length === 0) return;
                 
                 let data = { subject, content, updatedAt: displayDate };
                 
                 if (currentId) {
-                    // 更新時は作成日(createdAt)を触らない
+                    // 更新のみ（作成日は触らない）
                     await db.drafts.update(currentId, data);
                 } else {
-                    // 新規作成時のみ作成日を記録
+                    // 新規作成
                     data.createdAt = isoDate;
-                    data.sortDate = isoDate; // 念のため旧ソート用も入れておく
+                    data.sortDate = isoDate; 
                     currentId = await db.drafts.add(data);
                     setEditorUI('draft', true); 
-                    loadDraftList(); // 新規作成時のみリスト更新
+                    loadDraftList(); // 新規の時だけリスト更新
                 }
-                
             } else {
                 const name = document.getElementById('input-hf-name').value || '名称未設定';
                 const table = editMode === 'header' ? db.headers : db.footers;
@@ -798,19 +772,15 @@
                 loadSettingsList();
                 updateDropdowns();
             }
-            
-            // 保存完了メッセージ
             updateHeaderStatus('☁️ 自動保存しました', true);
         }
 
-        // --- 11. 便利機能 (コピー・Zip・バックアップ) ---
+        // --- 11. 便利機能 ---
         function stripHtml(html) {
             const tmp = document.createElement("DIV");
-            // 改行タグを \n に置換
             let text = html.replace(/<br\s*\/?>/gi, '\n');
             text = text.replace(/<\/p>/gi, '\n');
             text = text.replace(/<\/div>/gi, '\n');
-            
             tmp.innerHTML = text;
             return tmp.innerText || tmp.textContent || "";
         }
@@ -819,11 +789,6 @@
             let body = quill.root.innerHTML;
             const hId = document.getElementById('select-header').value;
             const fId = document.getElementById('select-footer').value;
-
-            // 基本文字サイズ設定を反映（HTMLコピー用）
-            const currentSize = document.getElementById('setting-font-size').value;
-            // エディタの内容をDIVでラップしてフォントサイズを指定
-            body = `<div style="font-size: ${currentSize}; font-family: 'M PLUS Rounded 1c', sans-serif;">${body}</div>`;
 
             let hContent = ''; let fContent = ''; 
             
@@ -856,20 +821,14 @@
             }
         }
 
-        // テキストコピー (改良版)
+        // テキストコピー
         async function copyTextOnly() {
             let { hContent, body, fContent } = await getCombinedContent();
-            
-            // 本文は Quill の getText() で取得 (改行が完璧)
             const textBody = quill.getText();
-            
-            // H/F は自作関数で改行込みのテキスト化
             const textHeader = stripHtml(hContent);
             const textFooter = stripHtml(fContent);
-            
             let finalString = `${textHeader}\n\n${textBody}\n\n${textFooter}`;
 
-            // 名前変換
             const nameMode = document.getElementById('select-name-convert').value;
             if (nameMode === 'convert') {
                 finalString = finalString.replaceAll('あなた', '{{nickname}}さん');
@@ -896,7 +855,7 @@
         async function downloadAllDraftsAsZip() {
             if(!confirm('すべての下書きをzipファイルでダウンロードしますか？')) return;
 
-            const drafts = await db.drafts.toArray(); // 全件取得
+            const drafts = await db.drafts.toArray();
             if(drafts.length === 0) {
                 showToast('⚠️ 保存する下書きがありません');
                 return;
@@ -970,19 +929,7 @@
             reader.readAsText(file);
         }
 
-        // --- フォントサイズ管理 ---
-        function loadFontSize() {
-            const s = localStorage.getItem('default-font-size') || '16px';
-            document.getElementById('setting-font-size').value = s;
-            document.getElementById('editor').style.fontSize = s;
-        }
-        function saveFontSize() {
-            const s = document.getElementById('setting-font-size').value;
-            localStorage.setItem('default-font-size', s);
-            document.getElementById('editor').style.fontSize = s;
-        }
-
-        // --- トリガー設定 (入力検知) ---
+        // --- トリガー設定 (入力検知：userのみ) ---
         const triggerSave = () => {
             clearTimeout(autoSaveTimer);
             
@@ -994,7 +941,7 @@
         };
 
         // イベントリスナー登録
-        // 修正点: 'api'による変更（loadDraftでの代入など）は無視し、'user'のみ検知する
+        // ★重要: APIによる変更（loadDraftでの代入など）は無視し、'user'の入力のみ検知する
         quill.on('text-change', (delta, oldDelta, source) => {
             if (source === 'user') {
                 triggerSave();
@@ -1007,7 +954,6 @@
 
         // 初期ロード
         switchTab('drafts');
-        loadFontSize(); // フォントサイズ読み込み
     </script>
 </body>
 </html>
