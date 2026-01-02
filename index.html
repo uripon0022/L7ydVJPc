@@ -7,14 +7,14 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📩</text></svg>">
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
-   
+    
   <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
   <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/quill-image-resize-module@3.0.0/image-resize.min.js"></script>
-   
+    
   <script src="https://unpkg.com/dexie/dist/dexie.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-   
+    
   <style>
     /* ▼▼▼ テーマカラー変数定義 ▼▼▼ */
     :root {
@@ -125,7 +125,7 @@
   <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
 
   <header class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
-    <div class="flex items-center gap-2 md:gap-4 overflow-hidden">
+    <div class="flex items-center gap-2 md:gap-4 overflow-hidden flex-1">
       <button onclick="toggleSidebar()" class="md:hidden text-2xl text-[var(--theme-main)] p-1">
         ☰
       </button>
@@ -134,7 +134,11 @@
         📩 <span class="hidden md:inline">MailCopy Helper</span> <span class="md:hidden">MailHelper</span>
       </h1>
       <div id="status-msg" class="text-xs md:text-sm font-bold text-[var(--theme-main)] transition-opacity duration-700 opacity-0 ml-1 whitespace-nowrap"></div>
-    </div>
+      
+      <div id="char-count" class="ml-auto mr-2 text-xs md:text-sm font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full whitespace-nowrap">
+        0文字
+      </div>
+      </div>
     
     <div class="flex gap-1 md:gap-2 shrink-0">
       <button onclick="setTheme('pink')" class="w-5 h-5 md:w-6 md:h-6 rounded-full bg-pink-500 border-2 border-white shadow hover:scale-110 transition"></button>
@@ -1161,9 +1165,22 @@
       autoSaveTimer = setTimeout(autoSave, 1000);
     };
 
+    // ▼▼▼ 追加・変更：文字数カウント機能 (空白無視) ▼▼▼
+    function updateCharCount() {
+      const text = quill.getText();
+      // \s (スペース、タブ、改行など空白文字すべて) を削除
+      const cleanText = text.replace(/\s/g, ''); 
+      const count = cleanText.length;
+      
+      const countEl = document.getElementById('char-count');
+      if(countEl) countEl.textContent = `${count}文字`;
+    }
+
     quill.on('text-change', function(delta, oldDelta, source) {
+      updateCharCount(); // 文字数更新
       if (source === 'user') triggerSave();
     });
+    // ▲▲▲ ここまで ▲▲▲
     
     document.getElementById('input-subject').addEventListener('input', triggerSave);
     document.getElementById('input-hf-name').addEventListener('input', triggerSave);
@@ -1172,6 +1189,36 @@
     // イベントリスナー追加: プルダウン変更時にキャッシュ即更新
     document.getElementById('select-header').addEventListener('change', updateHFCache);
     document.getElementById('select-footer').addEventListener('change', updateHFCache);
+
+    // ▼▼▼ 追加：画像クリックでサイズ指定機能（スマホ対応） ▼▼▼
+    document.getElementById('editor').addEventListener('click', function(e) {
+      // クリックされたのが画像(IMGタグ)の場合のみ発動
+      if (e.target.tagName === 'IMG') {
+        // 誤操作防止のため、確認を入れる（不要なら外してください）
+        if(!confirm('画像のサイズを変更しますか？')) return;
+
+        // 現在の幅を取得（属性 または スタイル）
+        const currentW = e.target.getAttribute('width') || e.target.style.width || '100%';
+        
+        // 入力プロンプトを表示
+        const newWidth = prompt('幅を指定してください\n(例: 100%, 300, 500px)', currentW);
+
+        if (newWidth) {
+          // メール表示用(HTML属性)とエディタ表示用(CSS)の両方に適用
+          e.target.setAttribute('width', newWidth); 
+          e.target.style.width = newWidth;
+          
+          // 数字のみ(例: 300)の場合はpxをつける
+          if(!isNaN(newWidth)) {
+             e.target.style.width = newWidth + 'px';
+          }
+
+          triggerSave(); // 変更を保存
+          showToast('🖼️ サイズを変更しました');
+        }
+      }
+    });
+    // ▲▲▲ ここまで ▲▲▲
 
     // 初期ロード
     switchTab('drafts');
