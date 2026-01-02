@@ -126,7 +126,8 @@
 
   <header class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
     <div class="flex items-center gap-2 md:gap-4 overflow-hidden flex-1">
-      <button onclick="toggleSidebar()" class="lg:hidden text-2xl text-[var(--theme-main)] p-1 shrink-0">
+      
+      <button onclick="toggleSidebar()" class="xl:hidden text-2xl text-[var(--theme-main)] p-1 shrink-0">
         ☰
       </button>
       
@@ -150,9 +151,9 @@
 
   <div class="flex flex-1 overflow-hidden relative">
     
-    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden transition-opacity"></div>
+    <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-30 hidden transition-opacity"></div>
 
-    <aside id="left-sidebar" class="fixed lg:relative inset-y-0 left-0 z-40 w-4/5 lg:w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-2xl lg:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+    <aside id="left-sidebar" class="fixed xl:relative inset-y-0 left-0 z-40 w-4/5 xl:w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-2xl xl:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform -translate-x-full xl:translate-x-0 transition-transform duration-300 ease-in-out">
       <div class="flex border-b border-[var(--theme-border)]">
         <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300">
           📝 下書き
@@ -160,7 +161,7 @@
         <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
           ⚙️ 設定
         </button>
-        <button onclick="toggleSidebar()" class="lg:hidden px-4 text-gray-400">✕</button>
+        <button onclick="toggleSidebar()" class="xl:hidden px-4 text-gray-400">✕</button>
       </div>
 
       <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
@@ -553,7 +554,8 @@
         `;
         div.onclick = () => {
           loadDraft(item.id);
-          if(window.innerWidth < 1024) toggleSidebar(); // 1024px未満なら閉じる
+          // 【修正】1280px未満なら閉じる
+          if(window.innerWidth < 1280) toggleSidebar(); 
         };
         listEl.appendChild(div);
       });
@@ -599,7 +601,7 @@
       `;
       div.onclick = () => {
         loadHFEditor(type, item.id);
-        if(window.innerWidth < 1024) toggleSidebar(); // 1024px未満なら閉じる
+        if(window.innerWidth < 1280) toggleSidebar();
       };
       container.appendChild(div);
     }
@@ -691,7 +693,7 @@
       updateHeaderStatus('', false); 
       
       loadDraftList();
-      if(window.innerWidth < 1024) toggleSidebar();
+      if(window.innerWidth < 1280) toggleSidebar();
     }
 
     async function loadDraft(id) {
@@ -724,7 +726,7 @@
       updateHeaderStatus('', false);
       loadSettingsList();
       showToast(type === 'header' ? '👑 新しいヘッダー' : '👣 新しいフッター');
-      if(window.innerWidth < 1024) toggleSidebar();
+      if(window.innerWidth < 1280) toggleSidebar();
     }
 
     async function loadHFEditor(type, id) {
@@ -1193,8 +1195,8 @@
     // ▼▼▼ 追加：画像クリックでサイズ指定機能（スマホ・タブレット向け） ▼▼▼
     document.getElementById('editor').addEventListener('click', function(e) {
       
-      // 【修正】1024px未満(スマホ・タブレット縦)なら発動、それ以上はPC操作
-      if (window.innerWidth >= 1024) return;
+      // 【修正】1280px未満(スマホ・タブレット全般)なら発動、それ以上はPC操作
+      if (window.innerWidth >= 1280) return;
 
       // クリックされたのが画像(IMGタグ)の場合のみ発動
       if (e.target.tagName === 'IMG') {
