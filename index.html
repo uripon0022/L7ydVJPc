@@ -56,13 +56,29 @@
 
     /* リストアイテム */
     .nav-item { 
-      @apply p-3 mb-2 rounded-lg cursor-pointer transition border-l-4 border-transparent hover:bg-[var(--theme-soft)] relative flex justify-between items-center; 
+      @apply p-3 mb-2 rounded-lg cursor-pointer transition border-l-4 border-transparent hover:bg-[var(--theme-soft)] relative flex justify-between items-center group; 
       border-bottom: 1px solid var(--theme-soft);
     }
     .nav-item.selected { 
       background-color: var(--theme-soft);
       border-left-color: var(--theme-main);
       font-weight: bold;
+    }
+
+    /* 定型文リスト用 */
+    .snippet-item {
+      @apply p-2 mb-2 rounded-lg cursor-pointer transition border border-gray-100 hover:bg-orange-50 hover:border-orange-200 relative flex justify-between items-center group;
+      background-color: #fff;
+    }
+    .snippet-item.selected {
+      background-color: #fff7ed; /* orange-50 */
+      border-left: 4px solid #f97316; /* orange-500 */
+    }
+    /* ドラッグ中のスタイル */
+    .snippet-item.dragging {
+      opacity: 0.5;
+      background-color: #eef2ff;
+      border: 2px dashed #a5b4fc;
     }
 
     /* 年月セパレーター */
@@ -154,15 +170,19 @@
 
     <aside id="left-sidebar" class="fixed md:relative inset-y-0 left-0 z-40 w-4/5 md:w-1/3 max-w-sm bg-white border-r border-[var(--theme-border)] flex flex-col shadow-2xl md:shadow-[4px_0_24px_rgba(0,0,0,0.02)] transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
       <div class="flex border-b border-[var(--theme-border)]">
-        <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300">
+        <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
           📝 下書き
         </button>
-        <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300">
+        <button id="tab-snippets" onclick="switchTab('snippets')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base text-orange-400 hover:text-orange-500">
+          📌 定型文
+        </button>
+        <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
           ⚙️ 設定
         </button>
         <button onclick="toggleSidebar()" class="md:hidden px-4 text-gray-400">✕</button>
       </div>
 
+      <!-- 下書きタブのコントロール -->
       <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
         <div class="relative">
           <input type="text" id="search-input" placeholder="🔍 検索..." 
@@ -185,6 +205,15 @@
         </div>
       </div>
 
+      <!-- 定型文タブのコントロール -->
+      <div id="ctrl-snippets" class="p-4 border-b border-orange-200 bg-orange-50 hidden space-y-3">
+        <p class="text-xs text-orange-600 font-bold text-center">👇 ドラッグで並び替え（最大3つまで登録可能）</p>
+        <button onclick="createSnippet()" class="w-full bg-white border-2 border-orange-400 text-orange-500 hover:bg-orange-100 font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
+          ＋ 新しい定型文・見出しを作成
+        </button>
+      </div>
+
+      <!-- 設定タブのコントロール -->
       <div id="ctrl-settings" class="p-4 border-b border-[var(--theme-border)] bg-white hidden flex flex-col gap-4">
         
         <div class="bg-gray-50 p-3 rounded-xl border border-gray-200">
@@ -241,7 +270,7 @@
         </div>
 
         <div id="hf-name-wrapper" class="hidden">
-          <label class="text-sm font-bold text-gray-500">設定名</label>
+          <label class="text-sm font-bold text-gray-500">設定名 / 定型文名</label>
           <input type="text" id="input-hf-name" 
             class="w-full text-lg font-bold border-b-2 border-gray-200 py-1 px-1 focus:outline-none focus:border-[var(--theme-main)] bg-transparent" 
             placeholder="名前を入力">
@@ -290,6 +319,14 @@
           
           <div id="action-confirm-msg" class="hidden absolute top-full mt-2 w-48 text-center font-bold text-xs bg-white p-2 rounded-lg border shadow-md animate-pulse z-20">
              </div>
+        </div>
+
+        <!-- ★追加★ クイック定型文エリア -->
+        <div id="quick-snippets-area" class="w-full mt-2 pt-2 border-t border-gray-200 hidden">
+          <div class="text-xs font-bold text-gray-400 mb-2 text-center">📌 クイック挿入</div>
+          <div id="quick-snippets-list" class="flex flex-col gap-2">
+             <!-- ここに定型文ボタンがJSで挿入されます -->
+          </div>
         </div>
       </div>
     </div>
@@ -352,11 +389,13 @@
     Size.whitelist = ['10px', '11px', '12px', '13px', '14px', '16px', '18px', '20px', '24px', '36px', '40px', '48px'];
     Quill.register(Size, true);
 
+    // ★ Dexie DB設定: 'snippets' に order を追加
     const db = new Dexie("MailEditorDB");
-    db.version(8).stores({
+    db.version(10).stores({ // version up
       drafts: '++id, subject, content, sortDate, updatedAt, createdAt', 
       headers: '++id, name, content, sortDate, updatedAt, createdAt',
-      footers: '++id, name, content, sortDate, updatedAt, createdAt'
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt' // order追加
     });
 
     // --- 2. エディター設定 ---
@@ -405,7 +444,7 @@
     // --- 3. 変数 & 変更検知用Snapshot ---
     let currentId = null;
     let activeTab = 'drafts'; 
-    let editMode = 'draft';
+    let editMode = 'draft'; // 'draft' | 'header' | 'footer' | 'snippet'
     let autoSaveTimer = null;
     let deletePending = false; 
     let duplicatePending = false; 
@@ -419,7 +458,7 @@
     // --- 4. トースト通知 ---
     function showToast(message) {
       const toast = document.getElementById('toast-container');
-      toast.textContent = message;
+      toast.innerHTML = message; // HTMLタグ許可
       toast.classList.add('show');
       if (window.toastTimer) clearTimeout(window.toastTimer);
       window.toastTimer = setTimeout(() => {
@@ -452,27 +491,49 @@
 
     // --- 6. タブ切り替え ---
     async function switchTab(tabName) {
+      const oldTab = activeTab;
       activeTab = tabName;
       resetActionStates(); 
 
-      if(tabName === 'drafts' && editMode !== 'draft') createNew(); 
-
+      // ボタン定義
       const btnDrafts = document.getElementById('tab-drafts');
+      const btnSnippets = document.getElementById('tab-snippets');
       const btnSettings = document.getElementById('tab-settings');
+      
       const ctrlDrafts = document.getElementById('ctrl-drafts');
+      const ctrlSnippets = document.getElementById('ctrl-snippets');
       const ctrlSettings = document.getElementById('ctrl-settings');
 
+      // クラス初期化
+      const activeClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-active text-sm md:text-base";
+      const inactiveClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive text-sm md:text-base";
+
+      btnDrafts.className = inactiveClass;
+      btnSnippets.className = inactiveClass + " text-orange-400 hover:text-orange-500";
+      btnSettings.className = inactiveClass;
+      
+      ctrlDrafts.classList.add('hidden');
+      ctrlSnippets.classList.add('hidden');
+      ctrlSettings.classList.add('hidden');
+
       if(tabName === 'drafts') {
-        btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
-        btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
+        btnDrafts.className = activeClass;
         ctrlDrafts.classList.remove('hidden');
-        ctrlSettings.classList.add('hidden');
-        loadDraftList();
-      } else {
-        btnSettings.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-active";
-        btnDrafts.className = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive";
+        if(editMode !== 'draft') {
+            // 他のモードから戻ってきたらリスト再ロード。Draftモードならそのまま
+             loadDraftList();
+        } else {
+             loadDraftList();
+        }
+      } 
+      else if(tabName === 'snippets') {
+        btnSnippets.className = activeClass + " text-orange-600 border-orange-500 bg-orange-50"; 
+        ctrlSnippets.classList.remove('hidden');
+        loadSnippetList();
+      } 
+      else {
+        btnSettings.className = activeClass;
         ctrlSettings.classList.remove('hidden');
-        ctrlDrafts.classList.add('hidden');
         loadSettingsList();
       }
     }
@@ -604,6 +665,197 @@
       container.appendChild(div);
     }
 
+    // ★ 定型文リスト描画関数 (DnD対応)
+    async function loadSnippetList() {
+      let snippets = await db.snippets.toArray();
+      
+      // order初期化チェック
+      let needUpdate = false;
+      snippets.sort((a, b) => {
+        const dateA = a.createdAt || a.sortDate || '';
+        const dateB = b.createdAt || b.sortDate || '';
+        return dateA < dateB ? 1 : -1; 
+      });
+      
+      snippets.forEach((s, i) => {
+        if (s.order === undefined) {
+          s.order = i; 
+          needUpdate = true;
+        }
+      });
+      if(needUpdate) await db.snippets.bulkPut(snippets);
+
+      // order順ソート
+      snippets.sort((a, b) => a.order - b.order);
+
+      const listEl = document.getElementById('list-container');
+      listEl.innerHTML = '';
+      
+      if(snippets.length === 0) {
+        listEl.innerHTML = `<div class="p-8 text-center text-gray-400 text-sm">
+          まだ定型文がありません。<br>「＋新しい定型文」から登録しましょう！
+        </div>`;
+        loadQuickSnippets(); 
+        return;
+      }
+
+      snippets.forEach((item) => {
+        const div = document.createElement('div');
+        const isEditing = (editMode === 'snippet' && currentId === item.id);
+        
+        // ドラッグ可能にする
+        div.draggable = true;
+        div.dataset.id = item.id;
+        
+        const bgClass = isEditing ? 'selected' : '';
+        div.className = `snippet-item ${bgClass}`;
+
+        // ハンドル(⋮⋮)を追加
+        div.innerHTML = `
+          <div class="cursor-grab text-gray-300 hover:text-orange-400 px-2 select-none text-lg leading-none flex items-center handle" title="ドラッグで移動">⋮⋮</div>
+          <div class="flex-1 min-w-0 pr-2 pl-1" onclick="loadSnippetEditor(${item.id})">
+            <div class="font-bold text-gray-700 text-sm truncate">📌 ${item.name || '(名称なし)'}</div>
+            <div class="text-[10px] text-gray-400 mt-1 truncate max-h-8 opacity-70">${stripHtml(item.content)}</div>
+          </div>
+          <button onclick="loadSnippetEditor(${item.id})" class="p-2 text-gray-300 hover:text-orange-500 transition shrink-0 border-l border-gray-100" title="編集">
+            ✏️
+          </button>
+        `;
+        
+        // イベントリスナー追加
+        addDnDHandlers(div);
+        
+        listEl.appendChild(div);
+      });
+      
+      loadQuickSnippets();
+    }
+    
+    // --- DnD ロジック ---
+    function addDnDHandlers(item) {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop); // dropでデータ更新はしないが、preventDefaultのために
+        item.addEventListener('dragend', handleDragEnd);
+    }
+    
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        // ドラッグ中のデータ転送設定（Firefox等で必要）
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', this.dataset.id);
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault(); // ドロップ許可
+        e.dataTransfer.dropEffect = 'move';
+        
+        const container = document.getElementById('list-container');
+        const afterElement = getDragAfterElement(container, e.clientY);
+        const draggable = document.querySelector('.dragging');
+        
+        if (afterElement == null) {
+            container.appendChild(draggable);
+        } else {
+            container.insertBefore(draggable, afterElement);
+        }
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        // 実際の並び替えはDragOverで行われているので、ここでは何もしないか、
+        // 念のため dataTransfer をクリアする程度
+    }
+    
+    async function handleDragEnd(e) {
+        this.classList.remove('dragging');
+        
+        // DOMの並び順に基づいて order を更新
+        const items = document.querySelectorAll('.snippet-item');
+        const updates = [];
+        
+        items.forEach((item, index) => {
+             const id = parseInt(item.dataset.id);
+             // 順番が変わっていれば更新リストに追加
+             updates.push({ id: id, order: index });
+        });
+        
+        // DB一括更新
+        await db.transaction('rw', db.snippets, async () => {
+           for(const up of updates) {
+               await db.snippets.update(up.id, { order: up.order });
+           }
+        });
+        
+        // クイック定型文の表示更新
+        loadQuickSnippets();
+    }
+    
+    // マウス位置から挿入位置を特定するヘルパー
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.snippet-item:not(.dragging)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+
+    // ★ 定型文クイック挿入（挿入処理）
+    async function onSnippetInsert(id) {
+        const item = await db.snippets.get(id);
+        if(!item) return;
+
+        quill.focus();
+        let range = quill.getSelection(true);
+        if (range) {
+            quill.clipboard.dangerouslyPasteHTML(range.index, item.content);
+            quill.setSelection(range.index + quill.getLength(), Quill.sources.SILENT);
+            showToast(`📌 「${item.name}」を挿入しました`);
+        } else {
+            showToast('❌ カーソル位置が特定できません');
+        }
+    }
+
+    // ★★★ クイック定型文ロード (order順) ★★★
+    async function loadQuickSnippets() {
+       let snippets = await db.snippets.toArray();
+       // order順
+       snippets.sort((a, b) => a.order - b.order);
+       
+       // 上位3件のみ
+       const top3 = snippets.slice(0, 3);
+       
+       const container = document.getElementById('quick-snippets-list');
+       const area = document.getElementById('quick-snippets-area');
+       
+       if(top3.length === 0) {
+         area.classList.add('hidden'); 
+         container.innerHTML = '';
+         return;
+       }
+       
+       container.innerHTML = '';
+       top3.forEach(s => {
+          const btn = document.createElement('button');
+          btn.className = "w-full bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95";
+          btn.innerHTML = `<span class="shrink-0">📌</span> <span class="truncate">${s.name || '名称なし'}</span>`;
+          btn.onclick = () => onSnippetInsert(s.id);
+          container.appendChild(btn);
+       });
+       
+       if(editMode === 'draft') {
+          area.classList.remove('hidden');
+       }
+    }
+
     // --- 8. 編集・作成・削除 UI制御 ---
     function setEditorUI(mode, hasId = false) {
       editMode = mode;
@@ -624,12 +876,16 @@
       
       // スマホ版WPボタンの制御
       const btnWpMobile = document.getElementById('btn-wp-mobile');
+      
+      // クイック定型文エリア
+      const quickArea = document.getElementById('quick-snippets-area');
 
       wrapper.className = ''; 
       subjectWrap.style.display = 'none';
       hfNameWrap.style.display = 'none';
       selectorWrap.style.display = 'none'; 
       indicator.className = 'hidden';
+      quickArea.classList.add('hidden'); // デフォルト非表示
 
       if (hasId) {
         btnDelete.classList.remove('hidden');
@@ -650,22 +906,29 @@
         btnWp.classList.remove('hidden'); 
         btnTextCopy.classList.remove('hidden');
         btnWpMobile.classList.remove('hidden'); // 表示
+        
+        loadQuickSnippets(); 
+        
       } else {
+        // 設定 or Snippet
         btnCopy.classList.add('hidden');
         btnWp.classList.add('hidden'); 
         btnTextCopy.classList.add('hidden');
         btnWpMobile.classList.add('hidden'); // 非表示
-        
+        hfNameWrap.style.display = 'block'; // 名前入力欄表示
+
         if(mode === 'header') {
           wrapper.classList.add('mode-header');
-          hfNameWrap.style.display = 'block';
           indicator.textContent = '👑 ヘッダー編集モード';
           indicator.className = 'block bg-blue-400 text-white text-center py-1 rounded mb-2 text-sm';
         } else if(mode === 'footer') {
           wrapper.classList.add('mode-footer');
-          hfNameWrap.style.display = 'block';
           indicator.textContent = '👣 フッター編集モード';
           indicator.className = 'block bg-green-500 text-white text-center py-1 rounded mb-2 text-sm';
+        } else if(mode === 'snippet') {
+          wrapper.classList.add('mode-snippet');
+          indicator.textContent = '📌 定型文編集モード';
+          indicator.className = 'block bg-orange-400 text-white text-center py-1 rounded mb-2 text-sm';
         }
       }
     }
@@ -690,7 +953,10 @@
       lastSavedSnapshot = { subject: '', content: '', name: '' };
       updateHeaderStatus('', false); 
       
-      loadDraftList();
+      // TabがDraftでない場合、Draftに切り替え
+      if(activeTab !== 'drafts') switchTab('drafts');
+      else loadDraftList();
+      
       if(window.innerWidth < 768) toggleSidebar();
     }
 
@@ -710,7 +976,9 @@
         updateHeaderStatus('', false);
         
         setEditorUI('draft', true); 
-        loadDraftList(); 
+        // もし別タブにいたら戻す
+        if(activeTab !== 'drafts') switchTab('drafts');
+        else loadDraftList(); 
       }
     }
 
@@ -724,6 +992,34 @@
       updateHeaderStatus('', false);
       loadSettingsList();
       showToast(type === 'header' ? '👑 新しいヘッダー' : '👣 新しいフッター');
+      if(window.innerWidth < 768) toggleSidebar();
+    }
+    
+    // ★ 新規定型文作成 (一番上に追加)
+    async function createSnippet() {
+      // ★ 追加: 個数制限チェック
+      const count = await db.snippets.count();
+      if (count >= 3) {
+        showToast('⚠️ 定型文は最大3つまでです');
+        return;
+      }
+
+      currentId = null;
+      resetActionStates();
+      setEditorUI('snippet', false);
+      document.getElementById('input-hf-name').value = '';
+      quill.root.innerHTML = '';
+      lastSavedSnapshot = { subject: '', content: '', name: '' };
+      updateHeaderStatus('', false);
+      
+      // 現在の最小orderを取得して、それより小さくする（先頭へ）
+      const first = await db.snippets.orderBy('order').first();
+      const newOrder = first ? first.order - 1 : 0;
+      
+      window.tempNewSnippetOrder = newOrder; // 一時的に保持
+
+      loadSnippetList();
+      showToast('📌 新しい定型文');
       if(window.innerWidth < 768) toggleSidebar();
     }
 
@@ -745,6 +1041,29 @@
         updateHeaderStatus('', false);
         
         loadSettingsList();
+      }
+    }
+
+    // ★ 定型文編集ロード
+    async function loadSnippetEditor(id) {
+      resetActionStates();
+      const item = await db.snippets.get(id);
+      if(item) {
+        currentId = item.id;
+        setEditorUI('snippet', true);
+        document.getElementById('input-hf-name').value = item.name;
+        quill.root.innerHTML = item.content;
+
+        lastSavedSnapshot = {
+            subject: '',
+            content: item.content,
+            name: item.name
+        };
+        updateHeaderStatus('', false);
+        loadSnippetList();
+        
+        // スマホでメニュー閉じる
+        if(window.innerWidth < 768) toggleSidebar();
       }
     }
 
@@ -776,15 +1095,26 @@
         showToast('🗑️ 下書きを削除しました');
         createNew();
       } else {
-        const table = editMode === 'header' ? db.headers : db.footers;
+        // header, footer, snippet
+        let table;
+        if(editMode === 'header') table = db.headers;
+        else if(editMode === 'footer') table = db.footers;
+        else if(editMode === 'snippet') table = db.snippets;
+
         await table.delete(currentId);
-        showToast('🗑️ 設定を削除しました');
+        showToast('🗑️ 削除しました');
         currentId = null;
         quill.root.innerHTML = '';
         document.getElementById('input-hf-name').value = '';
         setEditorUI(editMode, false);
-        loadSettingsList();
-        updateDropdowns();
+        
+        if(editMode === 'snippet') {
+            loadSnippetList();
+            loadQuickSnippets();
+        } else {
+             loadSettingsList();
+             updateDropdowns();
+        }
       }
       resetActionStates();
     }
@@ -793,6 +1123,16 @@
       if(!currentId) return;
 
       if(deletePending) resetActionStates();
+
+      // ★ 追加: Snippetの場合の個数制限チェック
+      if (editMode === 'snippet') {
+        const count = await db.snippets.count();
+        if (count >= 3) {
+          showToast('⚠️ 定型文は最大3つまでです');
+          resetActionStates(); // 複製確認状態をリセット
+          return;
+        }
+      }
 
       const btn = document.getElementById('btn-duplicate');
       const btnMob = document.getElementById('btn-duplicate-mobile');
@@ -812,7 +1152,12 @@
         return;
       }
 
-      const table = (editMode === 'draft') ? db.drafts : (editMode === 'header' ? db.headers : db.footers);
+      let table;
+      if(editMode === 'draft') table = db.drafts;
+      else if(editMode === 'header') table = db.headers;
+      else if(editMode === 'footer') table = db.footers;
+      else if(editMode === 'snippet') table = db.snippets;
+
       const original = await table.get(currentId);
       
       if(original) {
@@ -828,12 +1173,20 @@
         
         if(newItem.subject) newItem.subject += " のコピー";
         if(newItem.name) newItem.name += " のコピー";
+        
+        // Snippet複製の場合、orderを調整（直下に）
+        if (editMode === 'snippet' && newItem.order !== undefined) {
+            newItem.order = newItem.order + 0.5; // 簡易的に間に挟む
+        }
 
         const newId = await table.add(newItem);
         showToast('✨ 複製しました！');
 
         if(editMode === 'draft') {
           loadDraft(newId);
+        } else if(editMode === 'snippet') {
+          loadSnippetEditor(newId);
+          loadQuickSnippets();
         } else {
           loadHFEditor(editMode, newId);
           updateDropdowns();
@@ -957,6 +1310,7 @@
         loadDraftList();
 
       } else {
+        // Header, Footer, Snippet
         const name = document.getElementById('input-hf-name').value || '名称未設定';
         
         if (currentId && name === lastSavedSnapshot.name && content === lastSavedSnapshot.content) {
@@ -964,21 +1318,45 @@
           return;
         }
 
-        const table = editMode === 'header' ? db.headers : db.footers;
+        let table;
+        if(editMode === 'header') table = db.headers;
+        else if(editMode === 'footer') table = db.footers;
+        else if(editMode === 'snippet') table = db.snippets;
+
         const data = { name, content, sortDate, updatedAt: displayDate };
         
         if (currentId) {
           await table.update(currentId, data);
         } else {
-          data.createdAt = sortDate; // 新規
+          // 新規作成時
+          data.createdAt = sortDate;
+          
+          if(editMode === 'snippet') {
+              // 指定されたorderがあれば使う（createSnippetで設定）
+              if(window.tempNewSnippetOrder !== undefined) {
+                  data.order = window.tempNewSnippetOrder;
+                  window.tempNewSnippetOrder = undefined;
+              } else {
+                  // なければ先頭に追加(min-1)
+                  const first = await db.snippets.orderBy('order').first();
+                  data.order = first ? first.order - 1 : 0;
+              }
+          }
+          
           const newId = await table.add(data);
           currentId = newId;
           setEditorUI(editMode, true);
         }
 
         lastSavedSnapshot = { subject: '', content, name };
-        loadSettingsList();
-        updateDropdowns();
+        
+        if(editMode === 'snippet') {
+            loadSnippetList();
+            loadQuickSnippets(); 
+        } else {
+            loadSettingsList();
+            updateDropdowns();
+        }
       }
       
       updateHeaderStatus('☁️ 自動保存しました', true);
@@ -994,7 +1372,6 @@
       return tmp.innerText || tmp.textContent || "";
     }
 
-    // 【修正】確実なコピーのための関数
     function forceCopyToClipboard(text) {
       const textArea = document.createElement("textarea");
       textArea.value = text;
@@ -1018,13 +1395,11 @@
       document.body.removeChild(textArea);
     }
 
-    // HTMLの各行にフォントサイズを適用する関数
     function applyStylesToLines(html, fontSize) {
        const div = document.createElement('div');
        div.innerHTML = html;
        const targets = div.querySelectorAll('p, li, h1, h2, h3, blockquote');
        targets.forEach(el => {
-           // すでにクラス指定(ql-size-large等)や直接スタイルがある場合は上書きしない
            const hasClass = Array.from(el.classList).some(c => c.startsWith('ql-size'));
            const hasStyle = el.style.fontSize;
            
@@ -1035,7 +1410,6 @@
        return div.innerHTML;
     }
 
-    // HTMLコピー (同期処理に変更)
     function copyHtml() {
       const body = quill.root.innerHTML;
       let innerHtml = `${cachedHeaderContent}\n${body}\n${cachedFooterContent}`;
@@ -1045,14 +1419,12 @@
         innerHtml = innerHtml.replaceAll('あなた', '{{nickname}}さん');
       }
 
-      // フォントサイズ適用
       const currentFontSize = localStorage.getItem('editor-font-size') || '16px';
       const finalHtml = applyStylesToLines(innerHtml, currentFontSize);
 
       forceCopyToClipboard(finalHtml);
     }
 
-    // テキストコピー (同期処理に変更)
     function copyTextOnly() {
       const body = quill.getText();
       const textHeader = stripHtml(cachedHeaderContent);
@@ -1117,10 +1489,11 @@
       const drafts = await db.drafts.toArray();
       const headers = await db.headers.toArray();
       const footers = await db.footers.toArray();
+      const snippets = await db.snippets.toArray(); // snippet追加
       const theme = localStorage.getItem('editor-theme') || 'pink';
       const fontSize = localStorage.getItem('editor-font-size') || '16px';
       
-      const data = { version: '1.4', date: new Date().toISOString(), theme, fontSize, drafts, headers, footers };
+      const data = { version: '2.0', date: new Date().toISOString(), theme, fontSize, drafts, headers, footers, snippets };
       const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1140,11 +1513,12 @@
       reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target.result);
-          await db.transaction('rw', db.drafts, db.headers, db.footers, async () => {
-            await db.drafts.clear(); await db.headers.clear(); await db.footers.clear();
+          await db.transaction('rw', db.drafts, db.headers, db.footers, db.snippets, async () => {
+            await db.drafts.clear(); await db.headers.clear(); await db.footers.clear(); await db.snippets.clear();
             if(data.drafts) await db.drafts.bulkAdd(data.drafts);
             if(data.headers) await db.headers.bulkAdd(data.headers);
             if(data.footers) await db.footers.bulkAdd(data.footers);
+            if(data.snippets) await db.snippets.bulkAdd(data.snippets);
           });
           if(data.theme) setTheme(data.theme);
           if(data.fontSize) changeBaseFontSize(data.fontSize);
@@ -1165,10 +1539,8 @@
       autoSaveTimer = setTimeout(autoSave, 1000);
     };
 
-    // ▼▼▼ 追加・変更：文字数カウント機能 (空白無視) ▼▼▼
     function updateCharCount() {
       const text = quill.getText();
-      // \s (スペース、タブ、改行など空白文字すべて) を削除
       const cleanText = text.replace(/\s/g, ''); 
       const count = cleanText.length;
       
@@ -1177,52 +1549,34 @@
     }
 
     quill.on('text-change', function(delta, oldDelta, source) {
-      updateCharCount(); // 文字数更新
+      updateCharCount();
       if (source === 'user') triggerSave();
     });
-    // ▲▲▲ ここまで ▲▲▲
     
     document.getElementById('input-subject').addEventListener('input', triggerSave);
     document.getElementById('input-hf-name').addEventListener('input', triggerSave);
     document.getElementById('search-input').addEventListener('input', loadDraftList);
     
-    // イベントリスナー追加: プルダウン変更時にキャッシュ即更新
     document.getElementById('select-header').addEventListener('change', updateHFCache);
     document.getElementById('select-footer').addEventListener('change', updateHFCache);
 
-    // ▼▼▼ 追加：画像クリックでサイズ指定機能（スマホのみ） ▼▼▼
     document.getElementById('editor').addEventListener('click', function(e) {
-      
-      // 【修正】画面幅が768px以上(PC/タブレット横)なら何もしない(既存のドラッグ操作を有効に)
       if (window.innerWidth >= 768) return;
-
-      // クリックされたのが画像(IMGタグ)の場合のみ発動
       if (e.target.tagName === 'IMG') {
-        // 誤操作防止のため、確認を入れる（不要なら外してください）
         if(!confirm('画像のサイズを変更しますか？')) return;
-
-        // 現在の幅を取得（属性 または スタイル）
         const currentW = e.target.getAttribute('width') || e.target.style.width || '100%';
-        
-        // 入力プロンプトを表示
         const newWidth = prompt('幅を指定してください\n(例: 100%, 300, 500px)', currentW);
-
         if (newWidth) {
-          // メール表示用(HTML属性)とエディタ表示用(CSS)の両方に適用
           e.target.setAttribute('width', newWidth); 
           e.target.style.width = newWidth;
-          
-          // 数字のみ(例: 300)の場合はpxをつける
           if(!isNaN(newWidth)) {
              e.target.style.width = newWidth + 'px';
           }
-
-          triggerSave(); // 変更を保存
+          triggerSave(); 
           showToast('🖼️ サイズを変更しました');
         }
       }
     });
-    // ▲▲▲ ここまで ▲▲▲
 
     // 初期ロード
     switchTab('drafts');
