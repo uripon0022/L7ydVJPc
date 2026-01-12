@@ -18,6 +18,7 @@
   <style>
     /* ▼▼▼ テーマカラー変数定義 ▼▼▼ */
     :root {
+      /* 元のくっきりした色に戻しました */
       --theme-main: #16a34a;  /* main */
       --theme-soft: #ecfdf5;  /* soft */
       --theme-border: #86efac; /* border */
@@ -39,7 +40,7 @@
       line-height: 1.8;
     }
     
-    /* ツールバー */
+    /* ツールバー (元の白背景に戻す) */
     .ql-toolbar.ql-snow {
       border: none;
       background-color: #fff;
@@ -67,18 +68,18 @@
 
     /* 定型文リスト用 */
     .snippet-item {
-      @apply p-2 mb-2 rounded-lg cursor-pointer transition border border-gray-100 hover:bg-orange-50 hover:border-orange-200 relative flex justify-between items-center group;
+      @apply p-2 mb-2 rounded-lg cursor-pointer transition border border-gray-100 hover:bg-[var(--theme-soft)] hover:border-[var(--theme-border)] relative flex justify-between items-center group;
       background-color: #fff;
     }
     .snippet-item.selected {
-      background-color: #fff7ed; /* orange-50 */
-      border-left: 4px solid #f97316; /* orange-500 */
+      background-color: var(--theme-soft);
+      border-left: 4px solid var(--theme-main);
     }
     /* ドラッグ中のスタイル */
     .snippet-item.dragging {
       opacity: 0.5;
-      background-color: #eef2ff;
-      border: 2px dashed #a5b4fc;
+      background-color: #f3f4f6; /* gray-100 */
+      border: 2px dashed #d1d5db; /* gray-300 */
     }
 
     /* 年月セパレーター */
@@ -173,7 +174,7 @@
         <button id="tab-drafts" onclick="switchTab('drafts')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
           📝 下書き
         </button>
-        <button id="tab-snippets" onclick="switchTab('snippets')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base text-orange-400 hover:text-orange-500">
+        <button id="tab-snippets" onclick="switchTab('snippets')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
           📌 定型文
         </button>
         <button id="tab-settings" onclick="switchTab('settings')" class="flex-1 py-3 text-center font-bold transition duration-300 text-sm md:text-base">
@@ -206,9 +207,9 @@
       </div>
 
       <!-- 定型文タブのコントロール -->
-      <div id="ctrl-snippets" class="p-4 border-b border-orange-200 bg-orange-50 hidden space-y-3">
-        <p class="text-xs text-orange-600 font-bold text-center">👇 ドラッグで並び替え（最大3つまで登録可能）</p>
-        <button onclick="createSnippet()" class="w-full bg-white border-2 border-orange-400 text-orange-500 hover:bg-orange-100 font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
+      <div id="ctrl-snippets" class="p-4 border-b border-[var(--theme-border)] bg-white hidden space-y-3">
+        <p class="text-xs text-gray-500 font-bold text-center">👇 ドラッグで並び替え（最大3つまで登録可能）</p>
+        <button onclick="createSnippet()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
           ＋ 新しい定型文・見出しを作成
         </button>
       </div>
@@ -354,6 +355,7 @@
   <script>
     // --- 0. テーマとフォント管理 ---
     const themes = {
+      // 元の色に戻しました
       green: { main: '#16a34a', soft: '#ecfdf5', border: '#86efac', hover: '#15803d' },
       pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
       blue: { main: '#3b82f6', soft: '#eff6ff', border: '#bfdbfe', hover: '#2563eb' },
@@ -509,7 +511,7 @@
       const inactiveClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-inactive text-sm md:text-base";
 
       btnDrafts.className = inactiveClass;
-      btnSnippets.className = inactiveClass + " text-orange-400 hover:text-orange-500";
+      btnSnippets.className = inactiveClass;
       btnSettings.className = inactiveClass;
       
       ctrlDrafts.classList.add('hidden');
@@ -527,7 +529,7 @@
         }
       } 
       else if(tabName === 'snippets') {
-        btnSnippets.className = activeClass + " text-orange-600 border-orange-500 bg-orange-50"; 
+        btnSnippets.className = activeClass;
         ctrlSnippets.classList.remove('hidden');
         loadSnippetList();
       } 
@@ -712,12 +714,12 @@
 
         // ハンドル(⋮⋮)を追加
         div.innerHTML = `
-          <div class="cursor-grab text-gray-300 hover:text-orange-400 px-2 select-none text-lg leading-none flex items-center handle" title="ドラッグで移動">⋮⋮</div>
+          <div class="cursor-grab text-gray-300 hover:text-[var(--theme-main)] px-2 select-none text-lg leading-none flex items-center handle" title="ドラッグで移動">⋮⋮</div>
           <div class="flex-1 min-w-0 pr-2 pl-1" onclick="loadSnippetEditor(${item.id})">
             <div class="font-bold text-gray-700 text-sm truncate">📌 ${item.name || '(名称なし)'}</div>
             <div class="text-[10px] text-gray-400 mt-1 truncate max-h-8 opacity-70">${stripHtml(item.content)}</div>
           </div>
-          <button onclick="loadSnippetEditor(${item.id})" class="p-2 text-gray-300 hover:text-orange-500 transition shrink-0 border-l border-gray-100" title="編集">
+          <button onclick="loadSnippetEditor(${item.id})" class="p-2 text-gray-300 hover:text-[var(--theme-main)] transition shrink-0 border-l border-gray-100" title="編集">
             ✏️
           </button>
         `;
@@ -735,19 +737,18 @@
     function addDnDHandlers(item) {
         item.addEventListener('dragstart', handleDragStart);
         item.addEventListener('dragover', handleDragOver);
-        item.addEventListener('drop', handleDrop); // dropでデータ更新はしないが、preventDefaultのために
+        item.addEventListener('drop', handleDrop);
         item.addEventListener('dragend', handleDragEnd);
     }
     
     function handleDragStart(e) {
         this.classList.add('dragging');
-        // ドラッグ中のデータ転送設定（Firefox等で必要）
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', this.dataset.id);
     }
 
     function handleDragOver(e) {
-        e.preventDefault(); // ドロップ許可
+        e.preventDefault(); 
         e.dataTransfer.dropEffect = 'move';
         
         const container = document.getElementById('list-container');
@@ -763,35 +764,28 @@
     
     function handleDrop(e) {
         e.preventDefault();
-        // 実際の並び替えはDragOverで行われているので、ここでは何もしないか、
-        // 念のため dataTransfer をクリアする程度
     }
     
     async function handleDragEnd(e) {
         this.classList.remove('dragging');
         
-        // DOMの並び順に基づいて order を更新
         const items = document.querySelectorAll('.snippet-item');
         const updates = [];
         
         items.forEach((item, index) => {
              const id = parseInt(item.dataset.id);
-             // 順番が変わっていれば更新リストに追加
              updates.push({ id: id, order: index });
         });
         
-        // DB一括更新
         await db.transaction('rw', db.snippets, async () => {
            for(const up of updates) {
                await db.snippets.update(up.id, { order: up.order });
            }
         });
         
-        // クイック定型文の表示更新
         loadQuickSnippets();
     }
     
-    // マウス位置から挿入位置を特定するヘルパー
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.snippet-item:not(.dragging)')];
         
@@ -845,7 +839,8 @@
        container.innerHTML = '';
        top3.forEach(s => {
           const btn = document.createElement('button');
-          btn.className = "w-full bg-white border border-orange-200 text-orange-600 hover:bg-orange-50 font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95";
+          // クラスをテーマカラー連動に変更 + 透明感
+          btn.className = "w-full bg-white border border-[var(--theme-border)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95 backdrop-blur-sm";
           btn.innerHTML = `<span class="shrink-0">📌</span> <span class="truncate">${s.name || '名称なし'}</span>`;
           btn.onclick = () => onSnippetInsert(s.id);
           container.appendChild(btn);
@@ -920,15 +915,16 @@
         if(mode === 'header') {
           wrapper.classList.add('mode-header');
           indicator.textContent = '👑 ヘッダー編集モード';
-          indicator.className = 'block bg-blue-400 text-white text-center py-1 rounded mb-2 text-sm';
+          indicator.className = 'block bg-blue-400 text-white text-center py-1 rounded mb-2 text-sm shadow-sm';
         } else if(mode === 'footer') {
           wrapper.classList.add('mode-footer');
           indicator.textContent = '👣 フッター編集モード';
-          indicator.className = 'block bg-green-500 text-white text-center py-1 rounded mb-2 text-sm';
+          indicator.className = 'block bg-green-500 text-white text-center py-1 rounded mb-2 text-sm shadow-sm';
         } else if(mode === 'snippet') {
           wrapper.classList.add('mode-snippet');
           indicator.textContent = '📌 定型文編集モード';
-          indicator.className = 'block bg-orange-400 text-white text-center py-1 rounded mb-2 text-sm';
+          // ★修正: テーマカラー連動 + 薄い枠線デザインに変更
+          indicator.className = 'block bg-[var(--theme-soft)] border-2 border-[var(--theme-border)] text-[var(--theme-main)] text-center py-2 rounded-xl mb-2 text-sm font-bold tracking-wider';
         }
       }
     }
