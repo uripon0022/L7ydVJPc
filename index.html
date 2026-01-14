@@ -334,6 +334,13 @@
 
   </div>
 
+  <!-- ★追加★ モバイル用クイック挿入バー (ツールバーの上に浮く) -->
+  <div id="mobile-quick-snippets" class="md:hidden fixed bottom-16 left-0 right-0 z-40 hidden pointer-events-none flex justify-center">
+    <div id="mobile-quick-snippets-list" class="flex gap-2 px-4 py-2 pointer-events-auto bg-white/60 backdrop-blur-md rounded-full shadow-sm border border-gray-100/50 mx-2 overflow-x-auto max-w-full">
+      <!-- JSで挿入 -->
+    </div>
+  </div>
+
   <div id="mobile-toolbar" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-2 flex gap-2 z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
     <button onclick="copyTextOnly()" class="flex-1 bg-white border-2 border-gray-400 text-gray-600 font-bold py-2 rounded-lg text-xs flex flex-col items-center justify-center">
       📄 テキストコピー
@@ -827,27 +834,42 @@
        // 上位3件のみ
        const top3 = snippets.slice(0, 3);
        
-       const container = document.getElementById('quick-snippets-list');
-       const area = document.getElementById('quick-snippets-area');
+       const containerPC = document.getElementById('quick-snippets-list');
+       const areaPC = document.getElementById('quick-snippets-area');
+       const containerMob = document.getElementById('mobile-quick-snippets-list'); // 新設
+       const areaMob = document.getElementById('mobile-quick-snippets'); // 新設
        
+       containerPC.innerHTML = '';
+       containerMob.innerHTML = '';
+
        if(top3.length === 0) {
-         area.classList.add('hidden'); 
-         container.innerHTML = '';
+         areaPC.classList.add('hidden'); 
+         areaMob.classList.add('hidden');
          return;
        }
        
-       container.innerHTML = '';
        top3.forEach(s => {
+          // PC用ボタン
           const btn = document.createElement('button');
-          // クラスをテーマカラー連動に変更 + 透明感
-          btn.className = "w-full bg-white border border-[var(--theme-border)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95 backdrop-blur-sm";
+          btn.className = "w-full bg-white/80 border border-[var(--theme-border)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95 backdrop-blur-sm";
           btn.innerHTML = `<span class="shrink-0">📌</span> <span class="truncate">${s.name || '名称なし'}</span>`;
           btn.onclick = () => onSnippetInsert(s.id);
-          container.appendChild(btn);
+          containerPC.appendChild(btn);
+
+          // モバイル用ボタン
+          const btnMob = document.createElement('button');
+          btnMob.className = "bg-white/90 border border-[var(--theme-border)] text-[var(--theme-main)] font-bold py-1 px-3 rounded-lg shadow-sm text-xs whitespace-nowrap flex items-center gap-1 transition transform active:scale-95 backdrop-blur-sm";
+          btnMob.innerHTML = `<span>📌</span> <span>${s.name || '名称なし'}</span>`;
+          btnMob.onclick = () => onSnippetInsert(s.id);
+          containerMob.appendChild(btnMob);
        });
        
        if(editMode === 'draft') {
-          area.classList.remove('hidden');
+          areaPC.classList.remove('hidden');
+          areaMob.classList.remove('hidden');
+       } else {
+          areaPC.classList.add('hidden'); 
+          areaMob.classList.add('hidden');
        }
     }
 
@@ -873,14 +895,16 @@
       const btnWpMobile = document.getElementById('btn-wp-mobile');
       
       // クイック定型文エリア
-      const quickArea = document.getElementById('quick-snippets-area');
+      const quickAreaPC = document.getElementById('quick-snippets-area');
+      const quickAreaMob = document.getElementById('mobile-quick-snippets');
 
       wrapper.className = ''; 
       subjectWrap.style.display = 'none';
       hfNameWrap.style.display = 'none';
       selectorWrap.style.display = 'none'; 
       indicator.className = 'hidden';
-      quickArea.classList.add('hidden'); // デフォルト非表示
+      quickAreaPC.classList.add('hidden'); 
+      quickAreaMob.classList.add('hidden'); 
 
       if (hasId) {
         btnDelete.classList.remove('hidden');
