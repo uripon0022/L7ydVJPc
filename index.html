@@ -40,7 +40,7 @@
       line-height: 1.8;
     }
     
-    /* ツールバー (元の白背景に戻す) */
+    /* ツールバー */
     .ql-toolbar.ql-snow {
       border: none;
       background-color: #fff;
@@ -54,6 +54,11 @@
       border-radius: 0 0 12px 12px;
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
+
+    /* Undo/Redoアイコンの調整 */
+    .ql-snow .ql-picker.ql-size { width: 60px; }
+    .ql-undo, .ql-redo { outline: none; }
+    .ql-undo:hover svg, .ql-redo:hover svg { stroke: var(--theme-main) !important; }
 
     /* リストアイテム */
     .nav-item { 
@@ -134,12 +139,97 @@
     /* モバイル用メニュー制御 */
     .sidebar-open { transform: translateX(0) !important; }
     .overlay-open { display: block !important; }
+
+    /* モーダル用 */
+    .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+    }
   </style>
 </head>
 <body class="bg-gray-50 h-screen flex flex-col text-gray-700 overflow-hidden">
 
   <div id="toast-container">通知メッセージ</div>
   <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(this)">
+
+  <!-- ▼▼▼ 検索置換・AI整形モーダル (テーマカラー対応) ▼▼▼ -->
+  <div id="search-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-backdrop p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all flex flex-col max-h-[90vh]">
+      <div class="bg-[var(--theme-soft)] p-3 border-b border-[var(--theme-border)] flex justify-between items-center shrink-0">
+        <h3 class="font-bold text-[var(--theme-main)] flex items-center gap-2">
+          🔍 検索と置換
+        </h3>
+        <button onclick="toggleSearchModal()" class="text-gray-400 hover:text-gray-600 font-bold text-xl px-2">✕</button>
+      </div>
+      
+      <div class="overflow-y-auto p-4 space-y-4">
+        <!-- AI整形エリア -->
+        <div class="bg-[var(--theme-soft)] border border-[var(--theme-border)] rounded-xl p-3">
+            <h4 class="text-xs font-bold text-[var(--theme-main)] mb-2 uppercase tracking-wider flex items-center gap-1">
+              🤖 AI整形 <span class="text-[10px] font-normal text-gray-500">(選択した記号を一括削除)</span>
+            </h4>
+            
+            <div class="text-xs text-gray-600 mb-3 grid grid-cols-2 gap-2">
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-full-quote" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>全角 “ ”</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-half-quote" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>半角 "</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-space" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>半角スペース</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition">
+                    <input type="checkbox" id="ai-target-brackets" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>カギカッコ 「」</span>
+                </label>
+                <label class="flex items-center space-x-2 cursor-pointer bg-white p-1.5 rounded border border-[var(--theme-border)] hover:bg-gray-50 transition col-span-2">
+                    <input type="checkbox" id="ai-target-asterisk" checked onchange="saveAiCleanupConfig()" class="form-checkbox text-[var(--theme-main)] rounded focus:ring-[var(--theme-border)] h-4 w-4">
+                    <span>アスタリスク *</span>
+                </label>
+            </div>
+            <button onclick="performAiCleanup()" class="w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2">
+               🧹 実行する
+            </button>
+        </div>
+
+        <div class="border-t border-gray-100"></div>
+
+        <!-- 通常の検索置換 -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="flex-1">
+              <label class="block text-[10px] font-bold text-gray-400 mb-1">検索する文字</label>
+              <input type="text" id="search-term" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--theme-main)] outline-none" placeholder="例: “">
+            </div>
+            <div class="text-gray-300 text-lg pt-4">⮕</div>
+            <div class="flex-1">
+              <label class="block text-[10px] font-bold text-gray-400 mb-1">置換後 (空欄で削除)</label>
+              <input type="text" id="replace-term" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--theme-main)] outline-none" placeholder="">
+            </div>
+          </div>
+          
+          <div class="flex items-center justify-between">
+             <div class="flex items-center gap-2">
+               <input type="checkbox" id="check-subject" class="w-4 h-4 text-[var(--theme-main)] rounded focus:ring-[var(--theme-main)]">
+               <label for="check-subject" class="text-xs font-bold text-gray-500 cursor-pointer">件名も対象にする</label>
+             </div>
+             <button onclick="performManualReplace()" class="bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm">
+               すべて置換
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 bg-gray-50 border-t border-gray-100 flex justify-center shrink-0">
+        <button onclick="toggleSearchModal()" class="text-gray-400 font-bold text-xs hover:text-gray-600 transition underline">閉じる</button>
+      </div>
+    </div>
+  </div>
+  <!-- ▲▲▲ 検索置換モーダル ▲▲▲ -->
 
   <header class="bg-white/80 backdrop-blur-md shadow-sm p-3 md:p-4 flex justify-between items-center z-20 border-b border-[var(--theme-border)] transition-colors duration-300">
     <div class="flex items-center gap-2 md:gap-4 overflow-hidden flex-1">
@@ -189,9 +279,17 @@
           <input type="text" id="search-input" placeholder="🔍 検索..." 
             class="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-[var(--theme-border)] outline-none transition">
         </div>
-        <button onclick="createNew()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5">
-          ＋ 新規作成
-        </button>
+        
+        <div class="flex gap-2">
+            <button onclick="createNew()" class="flex-1 bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 text-sm">
+            ＋ 新規
+            </button>
+            <!-- ★変更★: テーマカラーを適用 -->
+            <button onclick="toggleSearchModal()" class="flex-1 bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 text-sm flex justify-center items-center gap-1">
+            🔍 置換・整形
+            </button>
+        </div>
+
         <button onclick="downloadAllDraftsAsZip()" class="w-full bg-white border border-gray-300 text-gray-500 font-bold py-2 px-4 rounded-xl hover:bg-gray-100 transition text-sm flex justify-center items-center gap-2">
           📦 Zip保存
         </button>
@@ -256,14 +354,14 @@
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッター</label>
-            <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-gray-400">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👣 フッター</label>
+            <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
               <option value="">（選択なし）</option>
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前変換</label>
-            <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-orange-400">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">🗣️ 名前変換</label>
+            <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
               <option value="convert">「あなた」→ {{nickname}}さん</option>
               <option value="none">変換しない</option>
             </select>
@@ -362,7 +460,6 @@
   <script>
     // --- 0. テーマとフォント管理 ---
     const themes = {
-      // 元の色に戻しました
       green: { main: '#16a34a', soft: '#ecfdf5', border: '#86efac', hover: '#15803d' },
       pink: { main: '#ec4899', soft: '#fdf2f8', border: '#fbcfe8', hover: '#db2777' },
       blue: { main: '#3b82f6', soft: '#eff6ff', border: '#bfdbfe', hover: '#2563eb' },
@@ -398,6 +495,11 @@
     Size.whitelist = ['10px', '11px', '12px', '13px', '14px', '16px', '18px', '20px', '24px', '36px', '40px', '48px'];
     Quill.register(Size, true);
 
+    // ★ Undo/Redoアイコン登録
+    const icons = Quill.import("ui/icons");
+    icons["undo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>`;
+    icons["redo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>`;
+
     // ★ Dexie DB設定: 'snippets' に order を追加
     const db = new Dexie("MailEditorDB");
     db.version(10).stores({ // version up
@@ -418,6 +520,8 @@
       theme: 'snow',
       modules: {
         imageResize: { displaySize: true },
+        // ★Historyモジュール有効化
+        history: { delay: 1000, maxStack: 500, userOnly: true },
         toolbar: {
           container: [
             [{ 'size': Size.whitelist }],
@@ -426,9 +530,14 @@
             [{ 'align': [] }, { 'indent': '-1'}, { 'indent': '+1' }],
             [{ 'header': 1 }, { 'header': 2 }, 'blockquote'],
             [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-            ['link', 'image', 'clean']
+            ['link', 'image', 'clean'],
+            ['undo', 'redo'] // ★ツールバーに追加
           ],
-          handlers: { 'image': imageHandler }
+          handlers: { 
+            'image': imageHandler,
+            'undo': function() { this.quill.history.undo(); },
+            'redo': function() { this.quill.history.redo(); }
+          }
         }
       }
     });
@@ -1598,8 +1707,168 @@
       }
     });
 
+    // ▼▼▼ 機能: 検索と置換 & AI整形 ▼▼▼
+    
+    function toggleSearchModal() {
+        const modal = document.getElementById('search-modal');
+        modal.classList.toggle('hidden');
+        if(!modal.classList.contains('hidden')) {
+            // モーダルを開いたときに設定をロード
+            loadAiCleanupConfig();
+            document.getElementById('search-term').focus();
+        }
+    }
+    
+    // 正規表現のエスケープ用
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); 
+    }
+
+    // ★ Delta直接操作版の手動置換 (インデックスズレ防止)
+    function executeReplace(searchTerm, replaceTerm, checkSubject) {
+        if (!searchTerm) return 0;
+
+        let replaceCount = 0;
+
+        // 1. 件名の置換 (DOM操作)
+        if (checkSubject && editMode === 'draft') {
+            const subjInput = document.getElementById('input-subject');
+            if (subjInput.value.includes(searchTerm)) {
+                const regex = new RegExp(escapeRegExp(searchTerm), 'g');
+                const matches = subjInput.value.match(regex);
+                if(matches) replaceCount += matches.length;
+                
+                subjInput.value = subjInput.value.replaceAll(searchTerm, replaceTerm);
+                triggerSave();
+            }
+        }
+
+        // 2. 本文の置換 (Delta操作)
+        const delta = quill.getContents();
+        const regex = new RegExp(escapeRegExp(searchTerm), 'g');
+        let bodyReplaceCount = 0;
+
+        delta.ops.forEach(op => {
+            if (typeof op.insert === 'string') {
+                const original = op.insert;
+                // 一括置換
+                const replaced = original.replaceAll(searchTerm, replaceTerm);
+                
+                if (original !== replaced) {
+                    // 出現回数をカウント (簡易的)
+                    const matches = original.match(regex);
+                    if(matches) bodyReplaceCount += matches.length;
+                    
+                    op.insert = replaced;
+                }
+            }
+        });
+
+        if (bodyReplaceCount > 0) {
+            quill.setContents(delta, Quill.sources.USER);
+            triggerSave();
+            replaceCount += bodyReplaceCount;
+        }
+
+        return replaceCount;
+    }
+
+    // 手動置換ボタン
+    function performManualReplace() {
+        const searchTerm = document.getElementById('search-term').value;
+        const replaceTerm = document.getElementById('replace-term').value;
+        const checkSubject = document.getElementById('check-subject').checked;
+
+        if (!searchTerm) {
+            showToast('⚠️ 検索する文字を入力してください');
+            return;
+        }
+
+        const count = executeReplace(searchTerm, replaceTerm, checkSubject);
+        if (count > 0) {
+            showToast(`✅ ${count}箇所を置換しました`);
+            toggleSearchModal();
+        } else {
+            showToast('⚠️ 対象の文字が見つかりませんでした');
+        }
+    }
+
+    // ★追加★ AI整形（一括削除） - Delta直接操作版
+    // ユーザー選択対応 + 設定保存
+    function performAiCleanup() {
+       let targets = "";
+       if (document.getElementById('ai-target-full-quote').checked) targets += "“”";
+       if (document.getElementById('ai-target-half-quote').checked) targets += "\"";
+       if (document.getElementById('ai-target-space').checked) targets += " ";
+       if (document.getElementById('ai-target-brackets').checked) targets += "「」";
+       if (document.getElementById('ai-target-asterisk').checked) targets += "*";
+
+       if (!targets) {
+           showToast('⚠️ 削除する記号を選択してください');
+           return;
+       }
+
+       if(!confirm('選択した記号を一括削除します。よろしいですか？')) return;
+
+       const delta = quill.getContents();
+       // 削除対象を正規表現の文字クラス [] に変換
+       const escapedTargets = targets.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+       const regex = new RegExp(`[${escapedTargets}]`, 'g'); 
+       
+       let matchCount = 0;
+
+       // Deltaの各Opを走査して文字を置換
+       delta.ops.forEach(op => {
+         if (typeof op.insert === 'string') {
+           const original = op.insert;
+           const replaced = original.replace(regex, '');
+           if (original !== replaced) {
+             matchCount += (original.length - replaced.length); // 削除された文字数
+             op.insert = replaced;
+           }
+         }
+       });
+
+       if (matchCount > 0) {
+           quill.setContents(delta, Quill.sources.USER); // 履歴に残す
+           triggerSave(); // 保存トリガー
+           showToast(`🧹 合計 ${matchCount}文字を削除しました`);
+           toggleSearchModal();
+       } else {
+           showToast('✅ 対象の記号は見つかりませんでした');
+       }
+    }
+
+    // ★追加★ 設定保存機能
+    function saveAiCleanupConfig() {
+      const config = {
+        fullQuote: document.getElementById('ai-target-full-quote').checked,
+        halfQuote: document.getElementById('ai-target-half-quote').checked,
+        space: document.getElementById('ai-target-space').checked,
+        brackets: document.getElementById('ai-target-brackets').checked,
+        asterisk: document.getElementById('ai-target-asterisk').checked
+      };
+      localStorage.setItem('mail_helper_ai_config', JSON.stringify(config));
+    }
+
+    function loadAiCleanupConfig() {
+      const configStr = localStorage.getItem('mail_helper_ai_config');
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        if(config.fullQuote !== undefined) document.getElementById('ai-target-full-quote').checked = config.fullQuote;
+        if(config.halfQuote !== undefined) document.getElementById('ai-target-half-quote').checked = config.halfQuote;
+        if(config.space !== undefined) document.getElementById('ai-target-space').checked = config.space;
+        if(config.brackets !== undefined) document.getElementById('ai-target-brackets').checked = config.brackets;
+        if(config.asterisk !== undefined) document.getElementById('ai-target-asterisk').checked = config.asterisk;
+      }
+    }
+
+    // ▲▲▲ ここまで追加機能 ▲▲▲
+
     // 初期ロード
     switchTab('drafts');
+    // 初期ロード時に設定も読み込む
+    loadAiCleanupConfig();
   </script>
 </body>
 </html>
