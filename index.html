@@ -191,7 +191,8 @@
                     <span>アスタリスク *</span>
                 </label>
             </div>
-            <button onclick="performAiCleanup()" class="w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2">
+            <!-- ★変更★: ID追加, 2回押しで実行 -->
+            <button id="btn-ai-execute" onclick="performAiCleanup()" class="w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2">
                🧹 実行する
             </button>
         </div>
@@ -217,7 +218,8 @@
                <input type="checkbox" id="check-subject" class="w-4 h-4 text-[var(--theme-main)] rounded focus:ring-[var(--theme-main)]">
                <label for="check-subject" class="text-xs font-bold text-gray-500 cursor-pointer">件名も対象にする</label>
              </div>
-             <button onclick="performManualReplace()" class="bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm">
+             <!-- ★変更★: ID追加, 2回押しで実行 -->
+             <button id="btn-manual-replace" onclick="performManualReplace()" class="bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm">
                すべて置換
              </button>
           </div>
@@ -354,14 +356,14 @@
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">👣 フッター</label>
-            <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+            <label class="block text-xs font-bold text-gray-500 mb-1 ml-1">👣 フッター</label>
+            <select id="select-footer" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-gray-400">
               <option value="">（選択なし）</option>
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">🗣️ 名前変換</label>
-            <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+            <label class="block text-xs font-bold text-orange-400 mb-1 ml-1">🗣️ 名前変換</label>
+            <select id="select-name-convert" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-orange-400">
               <option value="convert">「あなた」→ {{nickname}}さん</option>
               <option value="none">変換しない</option>
             </select>
@@ -572,6 +574,10 @@
     let cachedFooterContent = '';
     
     let lastSavedSnapshot = { subject: '', content: '', name: '' };
+    
+    // ★追加★ モーダル内のアクション確認状態
+    let aiCleanupPending = false;
+    let manualReplacePending = false;
 
     // --- 4. トースト通知 ---
     function showToast(message) {
@@ -1716,6 +1722,28 @@
             // モーダルを開いたときに設定をロード
             loadAiCleanupConfig();
             document.getElementById('search-term').focus();
+            // Reset pending states
+            resetModalActionStates();
+        }
+    }
+
+    // ★追加★ モーダル内のボタン状態リセット
+    function resetModalActionStates() {
+        aiCleanupPending = false;
+        manualReplacePending = false;
+
+        // AIボタンリセット
+        const aiBtn = document.getElementById('btn-ai-execute');
+        if(aiBtn) {
+            aiBtn.innerHTML = '🧹 実行する';
+            aiBtn.className = "w-full bg-[var(--theme-main)] hover:bg-[var(--theme-hover)] text-white font-bold py-2 px-4 rounded-lg shadow transition transform active:scale-95 text-sm flex items-center justify-center gap-2";
+        }
+
+        // 手動置換ボタンリセット
+        const manualBtn = document.getElementById('btn-manual-replace');
+        if(manualBtn) {
+            manualBtn.innerHTML = 'すべて置換';
+            manualBtn.className = "bg-[var(--theme-main)] text-white font-bold py-1.5 px-4 rounded-lg shadow hover:opacity-90 transition transform active:scale-95 text-sm";
         }
     }
     
@@ -1773,28 +1801,43 @@
         return replaceCount;
     }
 
-    // 手動置換ボタン
+    // 手動置換ボタン (ダブルクリック確認方式)
     function performManualReplace() {
         const searchTerm = document.getElementById('search-term').value;
-        const replaceTerm = document.getElementById('replace-term').value;
-        const checkSubject = document.getElementById('check-subject').checked;
-
+        // 入力チェック (未入力なら何もしない)
         if (!searchTerm) {
             showToast('⚠️ 検索する文字を入力してください');
             return;
         }
 
+        const btn = document.getElementById('btn-manual-replace');
+
+        // 1回目クリック: 確認モードへ
+        if (!manualReplacePending) {
+            manualReplacePending = true;
+            btn.innerHTML = '⚠️ 確定';
+            // 確認時は赤色になど変更
+            btn.classList.remove('bg-[var(--theme-main)]');
+            btn.classList.add('bg-red-500');
+            return;
+        }
+
+        // 2回目クリック: 実行
+        const replaceTerm = document.getElementById('replace-term').value;
+        const checkSubject = document.getElementById('check-subject').checked;
+
         const count = executeReplace(searchTerm, replaceTerm, checkSubject);
         if (count > 0) {
             showToast(`✅ ${count}箇所を置換しました`);
-            toggleSearchModal();
+            toggleSearchModal(); // 成功したら閉じる (リセットもされる)
         } else {
             showToast('⚠️ 対象の文字が見つかりませんでした');
+            resetModalActionStates(); // 見つからなかったらリセットして留まる
         }
     }
 
     // ★追加★ AI整形（一括削除） - Delta直接操作版
-    // ユーザー選択対応 + 設定保存
+    // ユーザー選択対応 + 設定保存 + ダブルクリック確認方式
     function performAiCleanup() {
        let targets = "";
        if (document.getElementById('ai-target-full-quote').checked) targets += "“”";
@@ -1808,7 +1851,20 @@
            return;
        }
 
-       if(!confirm('選択した記号を一括削除します。よろしいですか？')) return;
+       const btn = document.getElementById('btn-ai-execute');
+
+       // 1回目クリック: 確認モードへ
+       if (!aiCleanupPending) {
+           aiCleanupPending = true;
+           btn.innerHTML = '⚠️ もう一度押して実行';
+           // 確認時は赤色になど変更
+           btn.classList.remove('bg-[var(--theme-main)]', 'hover:bg-[var(--theme-hover)]');
+           btn.classList.add('bg-red-500', 'hover:bg-red-600');
+           return;
+       }
+
+       // 2回目クリック: 実行
+       // if(!confirm(...)) return; // 削除
 
        const delta = quill.getContents();
        // 削除対象を正規表現の文字クラス [] に変換
@@ -1833,9 +1889,10 @@
            quill.setContents(delta, Quill.sources.USER); // 履歴に残す
            triggerSave(); // 保存トリガー
            showToast(`🧹 合計 ${matchCount}文字を削除しました`);
-           toggleSearchModal();
+           toggleSearchModal(); // 成功したら閉じる
        } else {
            showToast('✅ 対象の記号は見つかりませんでした');
+           resetModalActionStates(); // リセット
        }
     }
 
