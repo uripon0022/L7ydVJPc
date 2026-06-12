@@ -39,6 +39,10 @@
       font-size: var(--base-font-size);
       line-height: 1.8;
     }
+    #editor .ql-editor a {
+      color: #2563eb !important;
+      text-decoration: underline !important;
+    }
     
     /* ツールバー */
     .ql-toolbar.ql-snow {
@@ -88,8 +92,26 @@
     }
 
     /* 年月セパレーター */
+    .year-group-header {
+      @apply flex items-center justify-between text-sm font-bold mt-3 mb-1 pl-2 pr-2 py-1;
+      color: var(--theme-main);
+    }
+    .year-group-header.collapsed {
+      opacity: 0.85;
+    }
+
     .month-header {
       @apply text-xs font-bold text-gray-400 mt-4 mb-2 pl-2 border-b border-gray-100 pb-1;
+    }
+
+    .folder-group-header {
+      @apply flex items-center justify-between px-3 py-2 rounded-xl border text-sm font-bold;
+      background: linear-gradient(135deg, rgba(255,255,255,0.95), var(--theme-soft));
+      border-color: var(--theme-border);
+      color: var(--theme-main);
+    }
+    .folder-group-header.collapsed {
+      opacity: 0.9;
     }
     
     /* トースト通知 */
@@ -278,10 +300,10 @@
       <!-- 下書きタブのコントロール -->
       <div id="ctrl-drafts" class="p-4 border-b border-[var(--theme-border)] bg-white space-y-3">
         <div class="relative">
-          <input type="text" id="search-input" placeholder="🔍 検索..." 
+          <input type="text" id="search-input" placeholder="🔍 検索... 例: 件名 / 本文 / 2026年 / 2026年6月" 
             class="w-full bg-gray-100 border-none rounded-full py-2 px-4 text-sm focus:ring-2 focus:ring-[var(--theme-border)] outline-none transition">
         </div>
-        
+
         <div class="flex gap-2">
             <button onclick="createNew()" class="flex-1 bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 text-sm">
             ＋ 新規
@@ -308,7 +330,7 @@
 
       <!-- 定型文タブのコントロール -->
       <div id="ctrl-snippets" class="p-4 border-b border-[var(--theme-border)] bg-white hidden space-y-3">
-        <p class="text-xs text-gray-500 font-bold text-center">👇 ドラッグで並び替え（最大3つまで登録可能）</p>
+        <p class="text-xs text-gray-500 font-bold text-center">👇 ドラッグで並び替え（最大5つまで登録可能）</p>
         <button onclick="createSnippet()" class="w-full bg-white border-2 border-[var(--theme-main)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-4 rounded-xl shadow-sm transition transform hover:-translate-y-0.5 flex justify-center items-center gap-2">
           ＋ 新しい定型文・見出しを作成
         </button>
@@ -327,6 +349,24 @@
             <option value="20px">20px (特大)</option>
             <option value="24px">24px</option>
           </select>
+        </div>
+
+        <div class="bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-3">
+          <label class="block text-xs font-bold text-gray-500">🗂️ フォルダ管理</label>
+          <select id="select-folder-manager" class="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+            <option value="">フォルダを選択</option>
+          </select>
+          <div class="flex gap-2">
+            <button onclick="createFolder()" class="flex-1 bg-white border border-[var(--theme-main)] text-[var(--theme-main)] text-xs font-bold py-2 px-2 rounded-lg hover:bg-[var(--theme-soft)] transition">
+              ＋フォルダ
+            </button>
+            <button onclick="renameCurrentFolder()" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              名前変更
+            </button>
+            <button onclick="deleteCurrentFolder()" class="flex-1 bg-white border border-red-200 text-red-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-50 transition">
+              削除
+            </button>
+          </div>
         </div>
 
         <div class="flex gap-2">
@@ -367,6 +407,26 @@
               <option value="convert">「あなた」→ {{nickname}}さん</option>
               <option value="none">変換しない</option>
             </select>
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">🗂️ 保存先フォルダ</label>
+            <select id="select-draft-folder" class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+              <option value="">随時</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="draft-date-wrapper" class="p-3 md:p-4 bg-white rounded-2xl shadow-sm border border-[var(--theme-border)]">
+          <div class="flex flex-col md:flex-row md:items-end gap-3">
+            <div class="flex-1">
+              <label class="block text-xs font-bold text-[var(--theme-main)] mb-1 ml-1">📅 下書き日付</label>
+              <input type="datetime-local" id="input-draft-date"
+                class="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 font-bold text-sm focus:outline-none focus:border-[var(--theme-main)]">
+              <div class="text-[11px] text-gray-400 mt-2 ml-1">この日付で年ごとのまとまりと並び順が決まります</div>
+            </div>
+            <button onclick="resetDraftDateToNow()" class="shrink-0 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-3 rounded-lg hover:bg-gray-100 transition">
+              今の日時に戻す
+            </button>
           </div>
         </div>
 
@@ -502,6 +562,12 @@
     icons["undo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="6 10 4 12 2 10 6 10"></polygon><path class="ql-stroke" d="M8.09,13.91A4.6,4.6,0,0,0,9,14,5,5,0,1,0,4,9"></path></svg>`;
     icons["redo"] = `<svg viewbox="0 0 18 18"><polygon class="ql-fill ql-stroke" points="12 10 14 12 16 10 12 10"></polygon><path class="ql-stroke" d="M9.91,13.91A4.6,4.6,0,0,1,9,14a5,5,0,1,1,5-5"></path></svg>`;
 
+    const DEFAULT_FOLDER_NAME = '随時';
+    const LEGACY_DEFAULT_FOLDER_NAME = '未分類';
+    const QUICK_SNIPPET_LIMIT = 5;
+    const CUSTOM_FOLDER_GROUP_KEY = '__custom_folder_group__';
+    const YEAR_GROUP_KEY_PREFIX = '__year_group__::';
+
     // ★ Dexie DB設定: 'snippets' に order を追加
     const db = new Dexie("MailEditorDB");
     db.version(10).stores({ // version up
@@ -510,12 +576,72 @@
       footers: '++id, name, content, sortDate, updatedAt, createdAt',
       snippets: '++id, name, content, order, sortDate, updatedAt, createdAt' // order追加
     });
+    db.version(11).stores({
+      drafts: '++id, folderId, subject, content, sortDate, updatedAt, createdAt',
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt',
+      folders: '++id, name, sortDate, updatedAt, createdAt'
+    }).upgrade(async tx => {
+      const folderTable = tx.table('folders');
+      const draftTable = tx.table('drafts');
+      const legacyDefaultFolder = await folderTable
+        .where('name')
+        .equals(LEGACY_DEFAULT_FOLDER_NAME)
+        .first();
+
+      if (legacyDefaultFolder) {
+        await folderTable.update(legacyDefaultFolder.id, {
+          name: DEFAULT_FOLDER_NAME
+        });
+      }
+
+      let defaultFolderId = await folderTable
+        .where('name')
+        .equals(DEFAULT_FOLDER_NAME)
+        .first()
+        .then(folder => folder?.id);
+
+      if (!defaultFolderId) {
+        defaultFolderId = await folderTable.add({
+          name: DEFAULT_FOLDER_NAME,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toLocaleString('ja-JP'),
+          sortDate: new Date().toISOString()
+        });
+      }
+
+      await draftTable.toCollection().modify(draft => {
+        if (draft.folderId === undefined || draft.folderId === null || draft.folderId === '') {
+          draft.folderId = defaultFolderId;
+        }
+      });
+    });
 
     // --- 2. エディター設定 ---
     function imageHandler() {
       const range = this.quill.getSelection();
       const value = prompt('画像のURLを入力してください:');
       if(value) this.quill.insertEmbed(range.index, 'image', value, Quill.sources.USER);
+    }
+
+    function normalizePastedUrl(text) {
+      if (!text) return null;
+      const trimmed = text.trim();
+      if (!trimmed || /\s/.test(trimmed)) return null;
+
+      try {
+        const url = new URL(trimmed);
+        if (['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol)) {
+          return url.toString();
+        }
+      } catch (e) {
+        if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(trimmed)) {
+          return `https://${trimmed}`;
+        }
+      }
+
+      return null;
     }
 
     const quill = new Quill('#editor', {
@@ -544,6 +670,20 @@
       }
     });
 
+    quill.root.addEventListener('paste', function(e) {
+      const range = quill.getSelection(true);
+      if (!range || range.length === 0) return;
+
+      const pastedText = e.clipboardData?.getData('text/plain') || '';
+      const normalizedUrl = normalizePastedUrl(pastedText);
+      if (!normalizedUrl) return;
+
+      e.preventDefault();
+      quill.formatText(range.index, range.length, 'link', normalizedUrl, Quill.sources.USER);
+      quill.setSelection(range.index + range.length, 0, Quill.sources.SILENT);
+      showToast('🔗 選択文字にリンクを設定しました');
+    }, true);
+
     setTimeout(() => {
       const sizeLabels = {
         '10px': '10px', '11px': '11px', '12px': '12px', '13px': '13px', 
@@ -565,6 +705,7 @@
     let currentId = null;
     let activeTab = 'drafts'; 
     let editMode = 'draft'; // 'draft' | 'header' | 'footer' | 'snippet'
+    let currentDraftFolderId = null;
     let autoSaveTimer = null;
     let deletePending = false; 
     let duplicatePending = false; 
@@ -573,7 +714,7 @@
     let cachedHeaderContent = '';
     let cachedFooterContent = '';
     
-    let lastSavedSnapshot = { subject: '', content: '', name: '' };
+    let lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
     
     // ★追加★ モーダル内のアクション確認状態
     let aiCleanupPending = false;
@@ -643,6 +784,7 @@
       if(tabName === 'drafts') {
         btnDrafts.className = activeClass;
         ctrlDrafts.classList.remove('hidden');
+        loadQuickSnippets();
         if(editMode !== 'draft') {
             // 他のモードから戻ってきたらリスト再ロード。Draftモードならそのまま
              loadDraftList();
@@ -674,6 +816,107 @@
       return `${year}/${month}/${day} ${hour}:${min}`;
     }
 
+    function formatYearLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}年`;
+    }
+
+    function formatYearMonthLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      return `${year}年${month}月`;
+    }
+
+    function formatMonthLabel(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getMonth() + 1}月`;
+    }
+
+    function getYearKey(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      return `${d.getFullYear()}`;
+    }
+
+    function getYearMonthKey(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      return `${year}-${month}`;
+    }
+
+    function buildDateSearchText(isoStr) {
+      if(!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const monthPadded = month.toString().padStart(2, '0');
+
+      return [
+        `${year}`,
+        `${year}年`,
+        `${year}/${monthPadded}`,
+        `${year}/${month}`,
+        `${year}-${monthPadded}`,
+        `${year}-${month}`,
+        `${year}${monthPadded}`,
+        `${year}${month}`,
+        `${year}年${month}月`,
+        `${year}年${monthPadded}月`
+      ].join(' ').toLowerCase().replace(/\s+/g, '');
+    }
+
+    function toDatetimeLocalValue(isoStr) {
+      if (!isoStr) return '';
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return '';
+
+      const year = d.getFullYear();
+      const month = (d.getMonth() + 1).toString().padStart(2, '0');
+      const day = d.getDate().toString().padStart(2, '0');
+      const hour = d.getHours().toString().padStart(2, '0');
+      const min = d.getMinutes().toString().padStart(2, '0');
+      return `${year}-${month}-${day}T${hour}:${min}`;
+    }
+
+    function getDraftDateIso() {
+      const input = document.getElementById('input-draft-date');
+      const value = input?.value;
+      if (!value) return new Date().toISOString();
+
+      const draftDate = new Date(value);
+      if (Number.isNaN(draftDate.getTime())) {
+        return new Date().toISOString();
+      }
+
+      return draftDate.toISOString();
+    }
+
+    function setDraftDateValue(isoStr) {
+      const input = document.getElementById('input-draft-date');
+      if (!input) return;
+      input.value = toDatetimeLocalValue(isoStr || new Date().toISOString());
+    }
+
+    function resetDraftDateToNow() {
+      setDraftDateValue(new Date().toISOString());
+      if (editMode === 'draft') {
+        triggerSave();
+      }
+    }
+
     function sortByCreatedAt(list) {
       return list.sort((a, b) => {
         const dateA = a.createdAt || a.sortDate || '';
@@ -682,9 +925,364 @@
       });
     }
 
+    function sortFoldersForDisplay(list) {
+      return list.sort((a, b) => {
+        if (a.name === DEFAULT_FOLDER_NAME) return 1;
+        if (b.name === DEFAULT_FOLDER_NAME) return -1;
+        return (a.name || '').localeCompare(b.name || '', 'ja');
+      });
+    }
+
+    function getCollapsedFolderIds() {
+      try {
+        const raw = localStorage.getItem('mail_helper_collapsed_folders');
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function setCollapsedFolderIds(ids) {
+      localStorage.setItem('mail_helper_collapsed_folders', JSON.stringify(ids));
+    }
+
+    function isFolderCollapsed(folder) {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(String(folder.id));
+    }
+
+    function isCustomFolderGroupCollapsed() {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(CUSTOM_FOLDER_GROUP_KEY);
+    }
+
+    function getYearGroupCollapseKey(folderId, yearKey) {
+      return `${YEAR_GROUP_KEY_PREFIX}${folderId}::${yearKey}`;
+    }
+
+    function isYearGroupCollapsed(folderId, yearKey) {
+      const collapsedIds = getCollapsedFolderIds();
+      return collapsedIds.includes(getYearGroupCollapseKey(folderId, yearKey));
+    }
+
+    function toggleFolderCollapse(folderId) {
+      const collapsedIds = getCollapsedFolderIds();
+      const key = String(folderId);
+      const nextIds = collapsedIds.includes(key)
+        ? collapsedIds.filter(id => id !== key)
+        : [...collapsedIds, key];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function toggleCustomFolderGroupCollapse() {
+      const collapsedIds = getCollapsedFolderIds();
+      const nextIds = collapsedIds.includes(CUSTOM_FOLDER_GROUP_KEY)
+        ? collapsedIds.filter(id => id !== CUSTOM_FOLDER_GROUP_KEY)
+        : [...collapsedIds, CUSTOM_FOLDER_GROUP_KEY];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function toggleYearGroupCollapse(folderId, yearKey) {
+      const collapsedIds = getCollapsedFolderIds();
+      const key = getYearGroupCollapseKey(folderId, yearKey);
+      const nextIds = collapsedIds.includes(key)
+        ? collapsedIds.filter(id => id !== key)
+        : [...collapsedIds, key];
+      setCollapsedFolderIds(nextIds);
+      loadDraftList();
+    }
+
+    function renderDraftFolderSection(listEl, folder, folderDrafts, collapsed, options = {}) {
+      const {
+        headerMarginClass = 'mt-3',
+        headerIndentClass = '',
+        itemIndentClass = 'ml-6',
+        yearIndentClass = 'ml-3',
+        monthIndentClass = 'ml-6',
+        emptyClass = 'px-3 py-3 text-xs text-gray-400',
+        forceExpand = false
+      } = options;
+
+      const folderHeader = document.createElement('div');
+      folderHeader.className = ['folder-group-header', headerMarginClass, headerIndentClass, collapsed ? 'collapsed' : '']
+        .filter(Boolean)
+        .join(' ');
+      folderHeader.innerHTML = `
+        <div class="flex items-center gap-2 truncate">
+          <span class="text-sm">${collapsed ? '▶' : '▼'}</span>
+          <span class="text-lg">🗂️</span>
+          <span class="truncate">${folder.name}</span>
+        </div>
+        <div class="text-xs bg-white/80 px-2 py-1 rounded-full border border-[var(--theme-border)]">${folderDrafts.length}件</div>
+      `;
+      folderHeader.onclick = () => toggleFolderCollapse(folder.id);
+      listEl.appendChild(folderHeader);
+
+      if (collapsed) {
+        return;
+      }
+
+      if (folderDrafts.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = emptyClass;
+        empty.textContent = 'このフォルダに下書きはありません';
+        listEl.appendChild(empty);
+        return;
+      }
+
+      const yearGroups = new Map();
+
+      folderDrafts.forEach(item => {
+        const targetDate = item.createdAt || item.sortDate;
+        const yearKey = getYearKey(targetDate) || 'unknown';
+        if (!yearGroups.has(yearKey)) {
+          yearGroups.set(yearKey, {
+            label: formatYearLabel(targetDate) || '日付未設定',
+            items: []
+          });
+        }
+        yearGroups.get(yearKey).items.push(item);
+      });
+
+      yearGroups.forEach((group, yearKey) => {
+        const yearCollapsed = forceExpand ? false : isYearGroupCollapsed(folder.id, yearKey);
+        const yearHeader = document.createElement('div');
+        yearHeader.className = `year-group-header ${yearIndentClass} ${yearCollapsed ? 'collapsed' : ''}`;
+        yearHeader.innerHTML = `
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-xs">${yearCollapsed ? '▶' : '▼'}</span>
+            <span class="truncate">${group.label}</span>
+          </div>
+          <div class="text-[11px] text-gray-400">${group.items.length}件</div>
+        `;
+        yearHeader.onclick = () => toggleYearGroupCollapse(folder.id, yearKey);
+        listEl.appendChild(yearHeader);
+
+        if (yearCollapsed) {
+          return;
+        }
+
+        let lastMonthKey = '';
+
+        group.items.forEach(item => {
+          const targetDate = item.createdAt || item.sortDate;
+          const currentMonthKey = getYearMonthKey(targetDate);
+
+          if (currentMonthKey && currentMonthKey !== lastMonthKey) {
+            const monthHeader = document.createElement('div');
+            monthHeader.className = `month-header ${monthIndentClass}`;
+            monthHeader.textContent = formatMonthLabel(targetDate);
+            listEl.appendChild(monthHeader);
+            lastMonthKey = currentMonthKey;
+          }
+
+          const div = document.createElement('div');
+          const isSelected = (editMode === 'draft' && currentId === item.id);
+          div.className = `nav-item ${itemIndentClass} ${isSelected ? 'selected' : ''}`;
+
+          const dateStr = formatDate(targetDate);
+
+          div.innerHTML = `
+            <div class="flex-1 min-w-0">
+              <div class="font-bold text-gray-700 truncate">${item.subject || '(無題)'}</div>
+              <div class="text-xs text-gray-400 mt-1">${dateStr}</div>
+            </div>
+          `;
+          div.onclick = () => {
+            loadDraft(item.id);
+            if(window.innerWidth < 768) toggleSidebar();
+          };
+          listEl.appendChild(div);
+        });
+      });
+    }
+
+    async function ensureDefaultFolder() {
+      let folder = await db.folders.where('name').equals(DEFAULT_FOLDER_NAME).first();
+      const legacyFolder = await db.folders.where('name').equals(LEGACY_DEFAULT_FOLDER_NAME).first();
+
+      if (!folder && legacyFolder) {
+        await db.folders.update(legacyFolder.id, {
+          name: DEFAULT_FOLDER_NAME
+        });
+        folder = await db.folders.get(legacyFolder.id);
+      }
+
+      if (!folder) {
+        const now = new Date();
+        const id = await db.folders.add({
+          name: DEFAULT_FOLDER_NAME,
+          createdAt: now.toISOString(),
+          updatedAt: now.toLocaleString('ja-JP'),
+          sortDate: now.toISOString()
+        });
+        folder = await db.folders.get(id);
+      }
+
+      await db.drafts.toCollection().modify(draft => {
+        if (draft.folderId === undefined || draft.folderId === null || draft.folderId === '') {
+          draft.folderId = folder.id;
+        }
+      });
+
+      return folder;
+    }
+
+    async function loadFolderDropdowns() {
+      const defaultFolder = await ensureDefaultFolder();
+      let folders = await db.folders.toArray();
+      folders = sortFoldersForDisplay(folders);
+
+      const editSelect = document.getElementById('select-draft-folder');
+      const managerSelect = document.getElementById('select-folder-manager');
+      const currentEdit = currentDraftFolderId;
+      const currentManager = managerSelect.value;
+
+      editSelect.innerHTML = '';
+      managerSelect.innerHTML = '<option value="">フォルダを選択</option>';
+
+      folders.forEach(folder => {
+        const editOption = document.createElement('option');
+        editOption.value = folder.id;
+        editOption.textContent = folder.name;
+        editSelect.appendChild(editOption);
+
+        const managerOption = document.createElement('option');
+        managerOption.value = folder.id;
+        managerOption.textContent = folder.name;
+        managerSelect.appendChild(managerOption);
+      });
+
+      if (currentManager && folders.some(folder => String(folder.id) === String(currentManager))) {
+        managerSelect.value = currentManager;
+      }
+
+      if (currentEdit && folders.some(folder => String(folder.id) === String(currentEdit))) {
+        editSelect.value = currentEdit;
+      } else {
+        currentDraftFolderId = defaultFolder.id;
+        editSelect.value = defaultFolder.id;
+      }
+    }
+
+    async function createFolder() {
+      const name = prompt('新しいフォルダ名を入力してください');
+      if (!name) return;
+
+      const trimmed = name.trim();
+      if (!trimmed) {
+        showToast('⚠️ フォルダ名を入力してください');
+        return;
+      }
+
+      const exists = await db.folders.where('name').equals(trimmed).first();
+      if (exists) {
+        showToast('⚠️ 同じ名前のフォルダがあります');
+        return;
+      }
+
+      const now = new Date();
+      const id = await db.folders.add({
+        name: trimmed,
+        createdAt: now.toISOString(),
+        updatedAt: now.toLocaleString('ja-JP'),
+        sortDate: now.toISOString()
+      });
+
+      const collapsedIds = getCollapsedFolderIds().filter(key => key !== CUSTOM_FOLDER_GROUP_KEY);
+      setCollapsedFolderIds([...collapsedIds, String(id)]);
+      currentDraftFolderId = id;
+      await loadFolderDropdowns();
+      await loadSettingsList();
+      await loadDraftList();
+      showToast(`🗂️ 「${trimmed}」を作成しました`);
+    }
+
+    async function renameCurrentFolder() {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ まず変更したいフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダの名前は変更できません');
+        return;
+      }
+
+      const nextName = prompt('新しいフォルダ名を入力してください', folder.name);
+      if (!nextName) return;
+      const trimmed = nextName.trim();
+      if (!trimmed) {
+        showToast('⚠️ フォルダ名を入力してください');
+        return;
+      }
+
+      const duplicate = await db.folders.where('name').equals(trimmed).first();
+      if (duplicate && duplicate.id !== folderId) {
+        showToast('⚠️ 同じ名前のフォルダがあります');
+        return;
+      }
+
+      await db.folders.update(folderId, {
+        name: trimmed,
+        updatedAt: new Date().toLocaleString('ja-JP'),
+        sortDate: new Date().toISOString()
+      });
+      await loadFolderDropdowns();
+      await loadSettingsList();
+      await loadDraftList();
+      showToast('✏️ フォルダ名を変更しました');
+    }
+
+    async function deleteCurrentFolder() {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ 削除するフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダは削除できません');
+        return;
+      }
+
+      if (!confirm(`「${folder.name}」を削除しますか？\n中の下書きは随時へ移動します。`)) return;
+
+      const defaultFolder = await ensureDefaultFolder();
+      await db.transaction('rw', db.folders, db.drafts, async () => {
+        await db.drafts.where('folderId').equals(folderId).modify(draft => {
+          draft.folderId = defaultFolder.id;
+        });
+        await db.folders.delete(folderId);
+      });
+
+      if (String(currentDraftFolderId) === String(folderId)) {
+        currentDraftFolderId = defaultFolder.id;
+      }
+      await loadFolderDropdowns();
+      await loadSettingsList();
+      await loadDraftList();
+      showToast('🗑️ フォルダを削除しました');
+    }
+
     async function loadDraftList() {
+      await loadFolderDropdowns();
+
       let keyword = document.getElementById('search-input').value.toLowerCase().trim();
       const safeKeyword = keyword.replace(/\s+/g, '');
+      const folders = await db.folders.toArray();
 
       let drafts = await db.drafts.toArray();
       drafts = sortByCreatedAt(drafts);
@@ -695,68 +1293,115 @@
           tmpDiv.innerHTML = d.content;
           const bodyText = (tmpDiv.textContent || tmpDiv.innerText || '').toLowerCase().replace(/\s+/g, '');
           const subj = (d.subject || '').toLowerCase().replace(/\s+/g, '');
-          return subj.includes(safeKeyword) || bodyText.includes(safeKeyword);
+          const dateText = buildDateSearchText(d.createdAt || d.sortDate);
+          return subj.includes(safeKeyword) || bodyText.includes(safeKeyword) || dateText.includes(safeKeyword);
         });
       }
 
       const listEl = document.getElementById('list-container');
       listEl.innerHTML = '';
 
-      if (drafts.length === 0) {
+      if (drafts.length === 0 && safeKeyword) {
         listEl.innerHTML = `<div class="p-4 text-sm text-gray-400 text-center">該当なし</div>`;
+        updateDropdowns();
+        return;
       }
 
-      // 年月ごとのグルーピング表示
-      let lastMonthStr = '';
+      sortFoldersForDisplay(folders);
 
-      drafts.forEach(item => {
-        const targetDate = item.createdAt || item.sortDate;
-        if(targetDate) {
-           const d = new Date(targetDate);
-           const currentMonthStr = `${d.getFullYear()}年${d.getMonth() + 1}月`;
+      const defaultFolder = folders.find(folder => folder.name === DEFAULT_FOLDER_NAME);
+      const customFolders = folders.filter(folder => folder.name !== DEFAULT_FOLDER_NAME);
+      const visibleCustomFolders = safeKeyword
+        ? customFolders.filter(folder => drafts.some(d => String(d.folderId) === String(folder.id)))
+        : customFolders;
 
-           if (currentMonthStr !== lastMonthStr) {
-             const headerDiv = document.createElement('div');
-             headerDiv.className = 'month-header';
-             headerDiv.textContent = currentMonthStr;
-             listEl.appendChild(headerDiv);
-             lastMonthStr = currentMonthStr;
-           }
+      const customGroupHeader = document.createElement('div');
+      const customGroupCollapsed = safeKeyword ? false : isCustomFolderGroupCollapsed();
+      customGroupHeader.className = `folder-group-header mt-3 ${customGroupCollapsed ? 'collapsed' : ''}`;
+      customGroupHeader.innerHTML = `
+        <div class="flex items-center gap-2 truncate">
+          <span class="text-sm">${customGroupCollapsed ? '▶' : '▼'}</span>
+          <span class="text-lg">🗂️</span>
+          <span class="truncate">フォルダ</span>
+        </div>
+      `;
+      customGroupHeader.onclick = () => toggleCustomFolderGroupCollapse();
+      listEl.appendChild(customGroupHeader);
+
+      if (!customGroupCollapsed) {
+        if (visibleCustomFolders.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'pl-6 py-3 text-xs text-gray-400';
+          empty.textContent = safeKeyword ? '該当するフォルダはありません' : '作成したフォルダはまだありません';
+          listEl.appendChild(empty);
+        } else {
+          visibleCustomFolders.forEach(folder => {
+            const folderDrafts = drafts.filter(d => String(d.folderId) === String(folder.id));
+            const collapsed = safeKeyword ? false : isFolderCollapsed(folder);
+            renderDraftFolderSection(listEl, folder, folderDrafts, collapsed, {
+              headerMarginClass: 'mt-2',
+              headerIndentClass: 'ml-3',
+              itemIndentClass: 'ml-6',
+              yearIndentClass: 'ml-6',
+              monthIndentClass: 'ml-6',
+              emptyClass: 'pl-6 py-3 text-xs text-gray-400',
+              forceExpand: safeKeyword
+            });
+          });
         }
+      }
 
-        const div = document.createElement('div');
-        const isSelected = (editMode === 'draft' && currentId === item.id);
-        div.className = `nav-item ${isSelected ? 'selected' : ''}`;
-        
-        const dateStr = formatDate(targetDate);
-
-        div.innerHTML = `
-          <div class="flex-1 min-w-0">
-            <div class="font-bold text-gray-700 truncate">${item.subject || '(無題)'}</div>
-            <div class="text-xs text-gray-400 mt-1">${dateStr}</div>
-          </div>
-        `;
-        div.onclick = () => {
-          loadDraft(item.id);
-          if(window.innerWidth < 768) toggleSidebar();
-        };
-        listEl.appendChild(div);
-      });
+      if (defaultFolder) {
+        const defaultDrafts = drafts.filter(d => String(d.folderId) === String(defaultFolder.id));
+        if (!safeKeyword || defaultDrafts.length > 0) {
+          const collapsed = safeKeyword ? false : isFolderCollapsed(defaultFolder);
+          renderDraftFolderSection(listEl, defaultFolder, defaultDrafts, collapsed, {
+            forceExpand: safeKeyword
+          });
+        }
+      }
       updateDropdowns();
     }
 
     async function loadSettingsList() {
+      const folders = await db.folders.toArray();
+      const drafts = await db.drafts.toArray();
       let headers = await db.headers.toArray();
       let footers = await db.footers.toArray();
       
+      sortFoldersForDisplay(folders);
       headers = sortByCreatedAt(headers);
       footers = sortByCreatedAt(footers);
 
       const listEl = document.getElementById('list-container');
       listEl.innerHTML = '';
 
+      const folderTitle = document.createElement('div');
+      folderTitle.className = "p-2 mb-2 bg-[var(--theme-soft)] text-[var(--theme-main)] font-bold text-xs uppercase tracking-wider rounded";
+      folderTitle.textContent = "🗂️ フォルダ一覧";
+      listEl.appendChild(folderTitle);
+
+      folders.forEach(folder => {
+        const count = drafts.filter(d => String(d.folderId) === String(folder.id)).length;
+        const div = document.createElement('div');
+        div.className = 'nav-item';
+        div.innerHTML = `
+          <div class="flex-1 min-w-0">
+            <div class="font-bold text-gray-700 text-sm truncate">${folder.name}</div>
+            <div class="text-xs text-gray-400 mt-1">下書き ${count}件</div>
+          </div>
+        `;
+        div.onclick = async () => {
+          document.getElementById('select-folder-manager').value = folder.id;
+          currentDraftFolderId = folder.id;
+          document.getElementById('select-draft-folder').value = folder.id;
+          showToast(`🗂️ 保存先を「${folder.name}」にしました`);
+        };
+        listEl.appendChild(div);
+      });
+
       const hTitle = document.createElement('div');
-      hTitle.className = "p-2 mb-2 bg-blue-50 text-blue-500 font-bold text-xs uppercase tracking-wider rounded"; 
+      hTitle.className = "p-2 mt-6 mb-2 bg-blue-50 text-blue-500 font-bold text-xs uppercase tracking-wider rounded"; 
       hTitle.textContent = "👑 ヘッダー一覧";
       listEl.appendChild(hTitle);
       headers.forEach(h => createHFListItem(h, 'header', listEl));
@@ -946,8 +1591,8 @@
        // order順
        snippets.sort((a, b) => a.order - b.order);
        
-       // 上位3件のみ
-       const top3 = snippets.slice(0, 3);
+       // 上位N件のみ
+       const topSnippets = snippets.slice(0, QUICK_SNIPPET_LIMIT);
        
        const containerPC = document.getElementById('quick-snippets-list');
        const areaPC = document.getElementById('quick-snippets-area');
@@ -957,13 +1602,13 @@
        containerPC.innerHTML = '';
        containerMob.innerHTML = '';
 
-       if(top3.length === 0) {
+       if(topSnippets.length === 0) {
          areaPC.classList.add('hidden'); 
          areaMob.classList.add('hidden');
          return;
        }
        
-       top3.forEach(s => {
+       topSnippets.forEach(s => {
           // PC用ボタン
           const btn = document.createElement('button');
           btn.className = "w-full bg-white/80 border border-[var(--theme-border)] text-[var(--theme-main)] hover:bg-[var(--theme-soft)] font-bold py-2 px-2 rounded-lg shadow-sm text-xs truncate flex items-center justify-start gap-2 transition transform active:scale-95 backdrop-blur-sm";
@@ -979,7 +1624,7 @@
           containerMob.appendChild(btnMob);
        });
        
-       if(editMode === 'draft') {
+       if(activeTab === 'drafts') {
           areaPC.classList.remove('hidden');
           areaMob.classList.remove('hidden');
        } else {
@@ -996,6 +1641,7 @@
       const subjectWrap = document.getElementById('subject-wrapper');
       const hfNameWrap = document.getElementById('hf-name-wrapper');
       const selectorWrap = document.getElementById('selector-wrapper');
+      const draftDateWrap = document.getElementById('draft-date-wrapper');
       
       const btnCopy = document.getElementById('btn-copy');
       const btnWp = document.getElementById('btn-wp');
@@ -1017,6 +1663,7 @@
       subjectWrap.style.display = 'none';
       hfNameWrap.style.display = 'none';
       selectorWrap.style.display = 'none'; 
+      draftDateWrap.style.display = 'none';
       indicator.className = 'hidden';
       quickAreaPC.classList.add('hidden'); 
       quickAreaMob.classList.add('hidden'); 
@@ -1036,6 +1683,7 @@
       if(mode === 'draft') {
         subjectWrap.style.display = 'block';
         selectorWrap.style.display = 'flex'; 
+        draftDateWrap.style.display = 'block';
         btnCopy.classList.remove('hidden');
         btnWp.classList.remove('hidden'); 
         btnTextCopy.classList.remove('hidden');
@@ -1084,8 +1732,12 @@
       setEditorUI('draft', false);
       document.getElementById('input-subject').value = '';
       quill.root.innerHTML = ''; 
+      setDraftDateValue(new Date().toISOString());
+      if (currentDraftFolderId) {
+        document.getElementById('select-draft-folder').value = currentDraftFolderId;
+      }
       
-      lastSavedSnapshot = { subject: '', content: '', name: '' };
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: currentDraftFolderId, draftDate: getDraftDateIso() };
       updateHeaderStatus('', false); 
       
       // TabがDraftでない場合、Draftに切り替え
@@ -1100,13 +1752,20 @@
       const draft = await db.drafts.get(id);
       if (draft) {
         currentId = draft.id;
+        currentDraftFolderId = draft.folderId || currentDraftFolderId;
         document.getElementById('input-subject').value = draft.subject;
         quill.root.innerHTML = draft.content;
+        setDraftDateValue(draft.createdAt || draft.sortDate);
+        if (currentDraftFolderId) {
+          document.getElementById('select-draft-folder').value = currentDraftFolderId;
+        }
         
         lastSavedSnapshot = { 
           subject: draft.subject, 
           content: draft.content,
-          name: '' 
+          name: '',
+          folderId: draft.folderId || null,
+          draftDate: draft.createdAt || draft.sortDate || ''
         };
         updateHeaderStatus('', false);
         
@@ -1123,7 +1782,7 @@
       setEditorUI(type, false);
       document.getElementById('input-hf-name').value = '';
       quill.root.innerHTML = '';
-      lastSavedSnapshot = { subject: '', content: '', name: '' };
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
       updateHeaderStatus('', false);
       loadSettingsList();
       showToast(type === 'header' ? '👑 新しいヘッダー' : '👣 新しいフッター');
@@ -1134,8 +1793,8 @@
     async function createSnippet() {
       // ★ 追加: 個数制限チェック
       const count = await db.snippets.count();
-      if (count >= 3) {
-        showToast('⚠️ 定型文は最大3つまでです');
+      if (count >= QUICK_SNIPPET_LIMIT) {
+        showToast(`⚠️ 定型文は最大${QUICK_SNIPPET_LIMIT}つまでです`);
         return;
       }
 
@@ -1144,7 +1803,7 @@
       setEditorUI('snippet', false);
       document.getElementById('input-hf-name').value = '';
       quill.root.innerHTML = '';
-      lastSavedSnapshot = { subject: '', content: '', name: '' };
+      lastSavedSnapshot = { subject: '', content: '', name: '', folderId: null, draftDate: '' };
       updateHeaderStatus('', false);
       
       // 現在の最小orderを取得して、それより小さくする（先頭へ）
@@ -1171,7 +1830,8 @@
         lastSavedSnapshot = {
           subject: '',
           content: item.content,
-          name: item.name
+          name: item.name,
+          draftDate: ''
         };
         updateHeaderStatus('', false);
         
@@ -1192,7 +1852,8 @@
         lastSavedSnapshot = {
             subject: '',
             content: item.content,
-            name: item.name
+            name: item.name,
+            draftDate: ''
         };
         updateHeaderStatus('', false);
         loadSnippetList();
@@ -1262,8 +1923,8 @@
       // ★ 追加: Snippetの場合の個数制限チェック
       if (editMode === 'snippet') {
         const count = await db.snippets.count();
-        if (count >= 3) {
-          showToast('⚠️ 定型文は最大3つまでです');
+        if (count >= QUICK_SNIPPET_LIMIT) {
+          showToast(`⚠️ 定型文は最大${QUICK_SNIPPET_LIMIT}つまでです`);
           resetActionStates(); // 複製確認状態をリセット
           return;
         }
@@ -1419,10 +2080,20 @@
 
       if(editMode === 'draft') {
         const subject = document.getElementById('input-subject').value;
+        const folderId = parseInt(document.getElementById('select-draft-folder').value);
+        const draftDate = getDraftDateIso();
         const text = quill.getText().trim();
         
         if (currentId && subject === lastSavedSnapshot.subject && content === lastSavedSnapshot.content) {
-          updateHeaderStatus('☁️ 保存済み', true);
+          if (folderId === lastSavedSnapshot.folderId && draftDate === lastSavedSnapshot.draftDate) {
+            updateHeaderStatus('☁️ 保存済み', true);
+            return;
+          }
+        }
+
+        if (Number.isNaN(folderId)) {
+          showToast('⚠️ 保存先フォルダを選択してください');
+          updateHeaderStatus('✍️ 執筆中...');
           return; 
         }
 
@@ -1431,17 +2102,17 @@
            return;
         }
         
-        const data = { subject, content, sortDate, updatedAt: displayDate };
+        const data = { subject, content, folderId, sortDate, updatedAt: displayDate, createdAt: draftDate };
         
         if (currentId) {
           await db.drafts.update(currentId, data);
         } else {
-          data.createdAt = sortDate; // 新規
           currentId = await db.drafts.add(data);
           setEditorUI('draft', true); 
         }
         
-        lastSavedSnapshot = { subject, content, name: '' };
+        lastSavedSnapshot = { subject, content, name: '', folderId, draftDate };
+        currentDraftFolderId = folderId;
         loadDraftList();
 
       } else {
@@ -1483,7 +2154,7 @@
           setEditorUI(editMode, true);
         }
 
-        lastSavedSnapshot = { subject: '', content, name };
+        lastSavedSnapshot = { subject: '', content, name, folderId: null, draftDate: '' };
         
         if(editMode === 'snippet') {
             loadSnippetList();
@@ -1530,17 +2201,40 @@
       document.body.removeChild(textArea);
     }
 
-    function applyStylesToLines(html, fontSize) {
+    function applyLinkStyles(html) {
        const div = document.createElement('div');
        div.innerHTML = html;
-       const targets = div.querySelectorAll('p, li, h1, h2, h3, blockquote');
+       const links = div.querySelectorAll('a');
+       links.forEach(link => {
+           link.style.color = '#2563eb';
+           link.style.textDecoration = 'underline';
+       });
+       return div.innerHTML;
+    }
+
+    function applyStylesToLines(html, fontSize) {
+       const div = document.createElement('div');
+       div.innerHTML = applyLinkStyles(html);
+       const targets = div.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, blockquote');
        targets.forEach(el => {
-           const hasClass = Array.from(el.classList).some(c => c.startsWith('ql-size'));
            const hasStyle = el.style.fontSize;
-           
-           if (!hasClass && !hasStyle) {
+           const hasNestedBlocks = !!el.querySelector('p, ul, ol, div, blockquote, h1, h2, h3, h4, h5, h6');
+
+           if (hasStyle) return;
+
+           if (hasNestedBlocks) {
                el.style.fontSize = fontSize;
+               return;
            }
+
+           const span = document.createElement('span');
+           span.style.fontSize = fontSize;
+
+           while (el.firstChild) {
+               span.appendChild(el.firstChild);
+           }
+
+           el.appendChild(span);
        });
        return div.innerHTML;
     }
@@ -1578,7 +2272,7 @@
 
     function copyBodyOnly() {
       const body = quill.root.innerHTML;
-      forceCopyToClipboard(body);
+      forceCopyToClipboard(applyLinkStyles(body));
     }
 
     async function downloadAllDraftsAsZip() {
@@ -1618,23 +2312,37 @@
       });
     }
 
-    // データ移行
-    async function exportData() {
-      if(!confirm('全データをファイルとして保存しますか？')) return;
+    function getBackupTimestamp() {
+      return new Date().toISOString().replace('T', '_').replace(/[:.]/g, '-').slice(0, 19);
+    }
+
+    async function collectBackupData() {
       const drafts = await db.drafts.toArray();
+      const folders = await db.folders.toArray();
       const headers = await db.headers.toArray();
       const footers = await db.footers.toArray();
-      const snippets = await db.snippets.toArray(); // snippet追加
+      const snippets = await db.snippets.toArray();
       const theme = localStorage.getItem('editor-theme') || 'pink';
       const fontSize = localStorage.getItem('editor-font-size') || '16px';
-      
-      const data = { version: '2.0', date: new Date().toISOString(), theme, fontSize, drafts, headers, footers, snippets };
+
+      return { version: '3.0', date: new Date().toISOString(), theme, fontSize, drafts, folders, headers, footers, snippets };
+    }
+
+    function downloadBackupJson(data, filename) {
       const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mailcopy_backup_${new Date().toLocaleDateString().replace(/\//g,'')}.json`;
+      a.download = filename;
       a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    // データ移行
+    async function exportData() {
+      if(!confirm('全データをファイルとして保存しますか？')) return;
+      const data = await collectBackupData();
+      downloadBackupJson(data, `mailcopy_backup_${getBackupTimestamp()}.json`);
       showToast('📤 バックアップ完了');
     }
 
@@ -1648,13 +2356,15 @@
       reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target.result);
-          await db.transaction('rw', db.drafts, db.headers, db.footers, db.snippets, async () => {
-            await db.drafts.clear(); await db.headers.clear(); await db.footers.clear(); await db.snippets.clear();
+          await db.transaction('rw', db.drafts, db.folders, db.headers, db.footers, db.snippets, async () => {
+            await db.drafts.clear(); await db.folders.clear(); await db.headers.clear(); await db.footers.clear(); await db.snippets.clear();
             if(data.drafts) await db.drafts.bulkAdd(data.drafts);
+            if(data.folders) await db.folders.bulkAdd(data.folders);
             if(data.headers) await db.headers.bulkAdd(data.headers);
             if(data.footers) await db.footers.bulkAdd(data.footers);
             if(data.snippets) await db.snippets.bulkAdd(data.snippets);
           });
+          await ensureDefaultFolder();
           if(data.theme) setTheme(data.theme);
           if(data.fontSize) changeBaseFontSize(data.fontSize);
           
@@ -1690,7 +2400,23 @@
     
     document.getElementById('input-subject').addEventListener('input', triggerSave);
     document.getElementById('input-hf-name').addEventListener('input', triggerSave);
+    const onDraftDateInput = function() {
+      if (editMode === 'draft') triggerSave();
+    };
+    document.getElementById('input-draft-date').addEventListener('input', onDraftDateInput);
+    document.getElementById('input-draft-date').addEventListener('change', onDraftDateInput);
     document.getElementById('search-input').addEventListener('input', loadDraftList);
+    document.getElementById('select-folder-manager').addEventListener('change', function() {
+      const nextValue = parseInt(this.value);
+      if (Number.isNaN(nextValue)) return;
+      currentDraftFolderId = nextValue;
+      document.getElementById('select-draft-folder').value = nextValue;
+    });
+    document.getElementById('select-draft-folder').addEventListener('change', function() {
+      const nextValue = parseInt(this.value);
+      currentDraftFolderId = nextValue;
+      if (editMode === 'draft') triggerSave();
+    });
     
     document.getElementById('select-header').addEventListener('change', updateHFCache);
     document.getElementById('select-footer').addEventListener('change', updateHFCache);
@@ -1923,9 +2649,14 @@
     // ▲▲▲ ここまで追加機能 ▲▲▲
 
     // 初期ロード
-    switchTab('drafts');
-    // 初期ロード時に設定も読み込む
-    loadAiCleanupConfig();
+    (async function initializeApp() {
+      await ensureDefaultFolder();
+      await loadFolderDropdowns();
+      setDraftDateValue(new Date().toISOString());
+      lastSavedSnapshot.draftDate = getDraftDateIso();
+      await switchTab('drafts');
+      loadAiCleanupConfig();
+    })();
   </script>
 </body>
 </html>
