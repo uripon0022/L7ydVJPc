@@ -757,6 +757,18 @@
       return null;
     }
 
+    function isImageUrl(urlText) {
+      if (!urlText) return false;
+
+      try {
+        const url = new URL(urlText);
+        const pathname = (url.pathname || '').toLowerCase();
+        return /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif|tiff?|heic|heif)$/i.test(pathname);
+      } catch (e) {
+        return false;
+      }
+    }
+
     const quill = new Quill('#editor', {
       theme: 'snow',
       modules: {
@@ -785,11 +797,19 @@
 
     quill.root.addEventListener('paste', function(e) {
       const range = quill.getSelection(true);
-      if (!range || range.length === 0) return;
-
       const pastedText = e.clipboardData?.getData('text/plain') || '';
       const normalizedUrl = normalizePastedUrl(pastedText);
-      if (!normalizedUrl) return;
+      if (!range || !normalizedUrl) return;
+
+      if (range.length === 0 && isImageUrl(normalizedUrl)) {
+        e.preventDefault();
+        quill.insertEmbed(range.index, 'image', normalizedUrl, Quill.sources.USER);
+        quill.setSelection(range.index + 1, 0, Quill.sources.SILENT);
+        showToast('🖼️ 画像を貼り付けました');
+        return;
+      }
+
+      if (range.length === 0) return;
 
       e.preventDefault();
       quill.formatText(range.index, range.length, 'link', normalizedUrl, Quill.sources.USER);
