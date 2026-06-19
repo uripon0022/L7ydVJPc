@@ -91,10 +91,76 @@
       border: 2px dashed #d1d5db; /* gray-300 */
     }
 
+    .folder-sort-list {
+      @apply flex flex-col gap-2;
+    }
+    .folder-sort-item {
+      @apply gap-2;
+    }
+    .folder-sort-item.dragging {
+      opacity: 0.5;
+      background-color: #f3f4f6;
+      border: 2px dashed #d1d5db;
+    }
+    .folder-sort-item.locked-folder {
+      cursor: pointer;
+    }
+    .folder-sort-handle {
+      @apply shrink-0 select-none text-lg leading-none px-2;
+      width: 2.25rem;
+      color: #d1d5db;
+      cursor: grab;
+      text-align: center;
+    }
+    .folder-sort-item.locked-folder .folder-sort-handle {
+      cursor: default;
+      opacity: 0;
+    }
+
+    .settings-folder-item {
+      background-color: #fff;
+      align-items: center;
+      margin-bottom: 0;
+      padding-top: 0.875rem;
+      padding-bottom: 0.875rem;
+    }
+    .settings-list-section {
+      background-color: #fff;
+      border: 1px solid #f3e8ef;
+      border-radius: 1rem;
+      padding: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    .settings-list-section:last-child {
+      margin-bottom: 0;
+    }
+    .settings-list-title {
+      display: block;
+      margin-bottom: 0.75rem;
+    }
+    .settings-list-items {
+      @apply flex flex-col gap-2;
+      position: relative;
+    }
+    .settings-list-items .nav-item {
+      margin-bottom: 0;
+    }
+    .settings-hf-item {
+      margin-bottom: 0;
+      background-color: #fff;
+    }
+    .settings-list-section .settings-list-items:last-child {
+      padding-bottom: 0.125rem;
+    }
+
     /* 年月セパレーター */
     .year-group-header {
       @apply flex items-center justify-between text-sm font-bold mt-3 mb-1 pl-2 pr-2 py-1;
       color: var(--theme-main);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      contain: paint;
     }
     .year-group-header.collapsed {
       opacity: 0.85;
@@ -109,9 +175,22 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.95), var(--theme-soft));
       border-color: var(--theme-border);
       color: var(--theme-main);
+      overflow: hidden;
+      position: relative;
+      isolation: isolate;
+      contain: paint;
     }
     .folder-group-header.collapsed {
       opacity: 0.9;
+    }
+
+    .default-folder-header {
+      @apply flex items-center justify-between mt-3 mb-1 px-1 py-1 text-sm font-bold;
+      color: var(--theme-main);
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
     }
     
     /* トースト通知 */
@@ -161,6 +240,13 @@
     /* モバイル用メニュー制御 */
     .sidebar-open { transform: translateX(0) !important; }
     .overlay-open { display: block !important; }
+
+    @media (min-width: 768px) {
+      #left-sidebar {
+        transform: none !important;
+        transition: none !important;
+      }
+    }
 
     /* モーダル用 */
     .modal-backdrop {
@@ -365,6 +451,14 @@
             </button>
             <button onclick="deleteCurrentFolder()" class="flex-1 bg-white border border-red-200 text-red-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-50 transition">
               削除
+            </button>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="moveCurrentFolder(-1)" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              ↑上へ
+            </button>
+            <button onclick="moveCurrentFolder(1)" class="flex-1 bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+              ↓下へ
             </button>
           </div>
         </div>
@@ -617,6 +711,25 @@
         }
       });
     });
+    db.version(12).stores({
+      drafts: '++id, folderId, subject, content, sortDate, updatedAt, createdAt',
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt',
+      folders: '++id, name, order, sortDate, updatedAt, createdAt'
+    }).upgrade(async tx => {
+      const folderTable = tx.table('folders');
+      const folders = await folderTable.toArray();
+      const customFolders = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'));
+
+      for (let i = 0; i < customFolders.length; i += 1) {
+        await folderTable.update(customFolders[i].id, {
+          order: i + 1
+        });
+      }
+    });
 
     // --- 2. エディター設定 ---
     function imageHandler() {
@@ -709,6 +822,7 @@
     let autoSaveTimer = null;
     let deletePending = false; 
     let duplicatePending = false; 
+    let isFolderSortDragging = false;
     
     // ★★★ キャッシュ用変数 (ここが重要！) ★★★
     let cachedHeaderContent = '';
@@ -768,6 +882,7 @@
       const ctrlDrafts = document.getElementById('ctrl-drafts');
       const ctrlSnippets = document.getElementById('ctrl-snippets');
       const ctrlSettings = document.getElementById('ctrl-settings');
+      const listContainer = document.getElementById('list-container');
 
       // クラス初期化
       const activeClass = "flex-1 py-3 text-center font-bold transition duration-300 tab-active text-sm md:text-base";
@@ -776,6 +891,7 @@
       btnDrafts.className = inactiveClass;
       btnSnippets.className = inactiveClass;
       btnSettings.className = inactiveClass;
+      listContainer.classList.remove('settings-scroll-fix');
       
       ctrlDrafts.classList.add('hidden');
       ctrlSnippets.classList.add('hidden');
@@ -800,6 +916,7 @@
       else {
         btnSettings.className = activeClass;
         ctrlSettings.classList.remove('hidden');
+        listContainer.classList.add('settings-scroll-fix');
         loadSettingsList();
       }
     }
@@ -925,12 +1042,49 @@
       });
     }
 
+    function getFolderOrderValue(folder) {
+      const order = Number(folder?.order);
+      return Number.isFinite(order) ? order : Number.MAX_SAFE_INTEGER;
+    }
+
     function sortFoldersForDisplay(list) {
       return list.sort((a, b) => {
         if (a.name === DEFAULT_FOLDER_NAME) return 1;
         if (b.name === DEFAULT_FOLDER_NAME) return -1;
+        const orderDiff = getFolderOrderValue(a) - getFolderOrderValue(b);
+        if (orderDiff !== 0) return orderDiff;
         return (a.name || '').localeCompare(b.name || '', 'ja');
       });
+    }
+
+    async function ensureFolderOrders() {
+      const folders = await db.folders.toArray();
+      const customFolders = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .sort((a, b) => {
+          const orderDiff = getFolderOrderValue(a) - getFolderOrderValue(b);
+          if (orderDiff !== 0) return orderDiff;
+          return (a.name || '').localeCompare(b.name || '', 'ja');
+        });
+
+      const updates = [];
+      customFolders.forEach((folder, index) => {
+        const nextOrder = index + 1;
+        if (folder.order !== nextOrder) {
+          updates.push({ id: folder.id, order: nextOrder });
+          folder.order = nextOrder;
+        }
+      });
+
+      if (updates.length > 0) {
+        await db.transaction('rw', db.folders, async () => {
+          for (const update of updates) {
+            await db.folders.update(update.id, { order: update.order });
+          }
+        });
+      }
+
+      return folders;
     }
 
     function getCollapsedFolderIds() {
@@ -1003,20 +1157,21 @@
         yearIndentClass = 'ml-3',
         monthIndentClass = 'ml-6',
         emptyClass = 'px-3 py-3 text-xs text-gray-400',
-        forceExpand = false
+        forceExpand = false,
+        plainHeader = false
       } = options;
 
       const folderHeader = document.createElement('div');
-      folderHeader.className = ['folder-group-header', headerMarginClass, headerIndentClass, collapsed ? 'collapsed' : '']
+      folderHeader.className = [plainHeader ? 'default-folder-header' : 'folder-group-header', headerMarginClass, headerIndentClass, collapsed ? 'collapsed' : '']
         .filter(Boolean)
         .join(' ');
       folderHeader.innerHTML = `
-        <div class="flex items-center gap-2 truncate">
-          <span class="text-sm">${collapsed ? '▶' : '▼'}</span>
-          <span class="text-lg">🗂️</span>
-          <span class="truncate">${folder.name}</span>
+        <div class="flex min-w-0 flex-1 items-center gap-2 ${plainHeader ? '' : 'overflow-hidden'}">
+          <span class="shrink-0 text-sm">${collapsed ? '▶' : '▼'}</span>
+          <span class="shrink-0 text-lg">🗂️</span>
+          <span class="${plainHeader ? '' : 'block truncate'}">${folder.name}</span>
         </div>
-        <div class="text-xs bg-white/80 px-2 py-1 rounded-full border border-[var(--theme-border)]">${folderDrafts.length}件</div>
+        <div class="${plainHeader ? 'shrink-0 text-[11px] text-gray-400' : 'shrink-0 text-xs bg-white/80 px-2 py-1 rounded-full border border-[var(--theme-border)]'}">${folderDrafts.length}件</div>
       `;
       folderHeader.onclick = () => toggleFolderCollapse(folder.id);
       listEl.appendChild(folderHeader);
@@ -1052,11 +1207,11 @@
         const yearHeader = document.createElement('div');
         yearHeader.className = `year-group-header ${yearIndentClass} ${yearCollapsed ? 'collapsed' : ''}`;
         yearHeader.innerHTML = `
-          <div class="flex items-center gap-2 truncate">
-            <span class="text-xs">${yearCollapsed ? '▶' : '▼'}</span>
-            <span class="truncate">${group.label}</span>
+          <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <span class="shrink-0 text-xs">${yearCollapsed ? '▶' : '▼'}</span>
+            <span class="block truncate">${group.label}</span>
           </div>
-          <div class="text-[11px] text-gray-400">${group.items.length}件</div>
+          <div class="shrink-0 text-[11px] text-gray-400">${group.items.length}件</div>
         `;
         yearHeader.onclick = () => toggleYearGroupCollapse(folder.id, yearKey);
         listEl.appendChild(yearHeader);
@@ -1133,7 +1288,7 @@
 
     async function loadFolderDropdowns() {
       const defaultFolder = await ensureDefaultFolder();
-      let folders = await db.folders.toArray();
+      let folders = await ensureFolderOrders();
       folders = sortFoldersForDisplay(folders);
 
       const editSelect = document.getElementById('select-draft-folder');
@@ -1185,8 +1340,13 @@
       }
 
       const now = new Date();
+      const folders = await ensureFolderOrders();
+      const nextOrder = folders
+        .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
+        .reduce((max, folder) => Math.max(max, getFolderOrderValue(folder)), 0) + 1;
       const id = await db.folders.add({
         name: trimmed,
+        order: nextOrder,
         createdAt: now.toISOString(),
         updatedAt: now.toLocaleString('ja-JP'),
         sortDate: now.toISOString()
@@ -1196,9 +1356,59 @@
       setCollapsedFolderIds([...collapsedIds, String(id)]);
       currentDraftFolderId = id;
       await loadFolderDropdowns();
-      await loadSettingsList();
-      await loadDraftList();
+      await refreshSidebarAfterFolderChange();
       showToast(`🗂️ 「${trimmed}」を作成しました`);
+    }
+
+    async function refreshSidebarAfterFolderChange() {
+      if (activeTab === 'settings') {
+        await loadSettingsList();
+        return;
+      }
+
+      if (activeTab === 'drafts') {
+        await loadDraftList();
+      }
+    }
+
+    async function moveCurrentFolder(direction) {
+      const managerValue = document.getElementById('select-folder-manager').value;
+      if (!managerValue) {
+        showToast('⚠️ 並べ替えるフォルダを選んでください');
+        return;
+      }
+
+      const folderId = parseInt(managerValue, 10);
+      const folder = await db.folders.get(folderId);
+      if (!folder) return;
+
+      if (folder.name === DEFAULT_FOLDER_NAME) {
+        showToast('⚠️ 随時フォルダは移動できません');
+        return;
+      }
+
+      const folders = sortFoldersForDisplay(await ensureFolderOrders());
+      const customFolders = folders.filter(item => item.name !== DEFAULT_FOLDER_NAME);
+      const currentIndex = customFolders.findIndex(item => String(item.id) === String(folderId));
+      const targetIndex = currentIndex + direction;
+
+      if (currentIndex === -1) return;
+      if (targetIndex < 0 || targetIndex >= customFolders.length) {
+        showToast(direction < 0 ? '⚠️ これ以上上へは移動できません' : '⚠️ これ以上下へは移動できません');
+        return;
+      }
+
+      const targetFolder = customFolders[targetIndex];
+
+      await db.transaction('rw', db.folders, async () => {
+        await db.folders.update(folder.id, { order: targetFolder.order });
+        await db.folders.update(targetFolder.id, { order: folder.order });
+      });
+
+      await loadFolderDropdowns();
+      document.getElementById('select-folder-manager').value = folder.id;
+      await refreshSidebarAfterFolderChange();
+      showToast(direction < 0 ? '⬆️ フォルダを上へ移動しました' : '⬇️ フォルダを下へ移動しました');
     }
 
     async function renameCurrentFolder() {
@@ -1237,8 +1447,7 @@
         sortDate: new Date().toISOString()
       });
       await loadFolderDropdowns();
-      await loadSettingsList();
-      await loadDraftList();
+      await refreshSidebarAfterFolderChange();
       showToast('✏️ フォルダ名を変更しました');
     }
 
@@ -1272,8 +1481,7 @@
         currentDraftFolderId = defaultFolder.id;
       }
       await loadFolderDropdowns();
-      await loadSettingsList();
-      await loadDraftList();
+      await refreshSidebarAfterFolderChange();
       showToast('🗑️ フォルダを削除しました');
     }
 
@@ -1282,7 +1490,7 @@
 
       let keyword = document.getElementById('search-input').value.toLowerCase().trim();
       const safeKeyword = keyword.replace(/\s+/g, '');
-      const folders = await db.folders.toArray();
+      const folders = await ensureFolderOrders();
 
       let drafts = await db.drafts.toArray();
       drafts = sortByCreatedAt(drafts);
@@ -1319,10 +1527,10 @@
       const customGroupCollapsed = safeKeyword ? false : isCustomFolderGroupCollapsed();
       customGroupHeader.className = `folder-group-header mt-3 ${customGroupCollapsed ? 'collapsed' : ''}`;
       customGroupHeader.innerHTML = `
-        <div class="flex items-center gap-2 truncate">
-          <span class="text-sm">${customGroupCollapsed ? '▶' : '▼'}</span>
-          <span class="text-lg">🗂️</span>
-          <span class="truncate">フォルダ</span>
+        <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+          <span class="shrink-0 text-sm">${customGroupCollapsed ? '▶' : '▼'}</span>
+          <span class="shrink-0 text-lg">🗂️</span>
+          <span class="block truncate">フォルダ</span>
         </div>
       `;
       customGroupHeader.onclick = () => toggleCustomFolderGroupCollapse();
@@ -1356,7 +1564,8 @@
         if (!safeKeyword || defaultDrafts.length > 0) {
           const collapsed = safeKeyword ? false : isFolderCollapsed(defaultFolder);
           renderDraftFolderSection(listEl, defaultFolder, defaultDrafts, collapsed, {
-            forceExpand: safeKeyword
+            forceExpand: safeKeyword,
+            plainHeader: true
           });
         }
       }
@@ -1364,7 +1573,7 @@
     }
 
     async function loadSettingsList() {
-      const folders = await db.folders.toArray();
+      const folders = await ensureFolderOrders();
       const drafts = await db.drafts.toArray();
       let headers = await db.headers.toArray();
       let footers = await db.footers.toArray();
@@ -1376,47 +1585,178 @@
       const listEl = document.getElementById('list-container');
       listEl.innerHTML = '';
 
+      const folderSection = document.createElement('div');
+      folderSection.className = 'settings-list-section';
+      listEl.appendChild(folderSection);
+
       const folderTitle = document.createElement('div');
-      folderTitle.className = "p-2 mb-2 bg-[var(--theme-soft)] text-[var(--theme-main)] font-bold text-xs uppercase tracking-wider rounded";
+      folderTitle.className = "settings-list-title p-2 mb-2 bg-[var(--theme-soft)] text-[var(--theme-main)] font-bold text-xs uppercase tracking-wider rounded";
       folderTitle.textContent = "🗂️ フォルダ一覧";
-      listEl.appendChild(folderTitle);
+      folderSection.appendChild(folderTitle);
+
+      const folderList = document.createElement('div');
+      folderList.className = 'folder-sort-list settings-list-items';
+      addFolderDnDContainerHandlers(folderList);
+      folderSection.appendChild(folderList);
 
       folders.forEach(folder => {
         const count = drafts.filter(d => String(d.folderId) === String(folder.id)).length;
         const div = document.createElement('div');
-        div.className = 'nav-item';
+        const isSelectedFolder = String(document.getElementById('select-folder-manager').value || '') === String(folder.id);
+        const isCustomFolder = folder.name !== DEFAULT_FOLDER_NAME;
+        div.className = `nav-item folder-sort-item settings-folder-item ${isSelectedFolder ? 'selected' : ''} ${isCustomFolder ? '' : 'locked-folder'}`;
+        div.dataset.id = folder.id;
+        div.dataset.draggable = isCustomFolder ? 'true' : 'false';
+        div.draggable = isCustomFolder;
         div.innerHTML = `
-          <div class="flex-1 min-w-0">
+          <div class="folder-sort-handle" title="${isCustomFolder ? 'ドラッグで移動' : ''}">${isCustomFolder ? '⋮⋮' : ''}</div>
+          <div class="flex-1 min-w-0 flex items-center gap-2">
             <div class="font-bold text-gray-700 text-sm truncate">${folder.name}</div>
-            <div class="text-xs text-gray-400 mt-1">下書き ${count}件</div>
+            <div class="ml-auto shrink-0 text-[11px] text-gray-400 whitespace-nowrap">下書き ${count}件</div>
           </div>
         `;
         div.onclick = async () => {
+          if (isFolderSortDragging) return;
           document.getElementById('select-folder-manager').value = folder.id;
           currentDraftFolderId = folder.id;
           document.getElementById('select-draft-folder').value = folder.id;
+          await loadSettingsList();
           showToast(`🗂️ 保存先を「${folder.name}」にしました`);
         };
-        listEl.appendChild(div);
+        if (isCustomFolder) {
+          addFolderDnDItemHandlers(div);
+        }
+        folderList.appendChild(div);
       });
 
+      const headerSection = document.createElement('div');
+      headerSection.className = 'settings-list-section';
+      listEl.appendChild(headerSection);
+
       const hTitle = document.createElement('div');
-      hTitle.className = "p-2 mt-6 mb-2 bg-blue-50 text-blue-500 font-bold text-xs uppercase tracking-wider rounded"; 
+      hTitle.className = "settings-list-title p-2 mb-2 bg-blue-50 text-blue-500 font-bold text-xs uppercase tracking-wider rounded"; 
       hTitle.textContent = "👑 ヘッダー一覧";
-      listEl.appendChild(hTitle);
-      headers.forEach(h => createHFListItem(h, 'header', listEl));
+      headerSection.appendChild(hTitle);
+      const headerList = document.createElement('div');
+      headerList.className = 'settings-list-items';
+      headerSection.appendChild(headerList);
+      headers.forEach(h => createHFListItem(h, 'header', headerList, { extraClass: 'settings-hf-item' }));
+
+      const footerSection = document.createElement('div');
+      footerSection.className = 'settings-list-section';
+      listEl.appendChild(footerSection);
 
       const fTitle = document.createElement('div');
-      fTitle.className = "p-2 mt-6 mb-2 bg-green-50 text-green-500 font-bold text-xs uppercase tracking-wider rounded"; 
+      fTitle.className = "settings-list-title p-2 mb-2 bg-green-50 text-green-500 font-bold text-xs uppercase tracking-wider rounded"; 
       fTitle.textContent = "👣 フッター一覧";
-      listEl.appendChild(fTitle);
-      footers.forEach(f => createHFListItem(f, 'footer', listEl));
+      footerSection.appendChild(fTitle);
+      const footerList = document.createElement('div');
+      footerList.className = 'settings-list-items';
+      footerSection.appendChild(footerList);
+      footers.forEach(f => createHFListItem(f, 'footer', footerList, { extraClass: 'settings-hf-item' }));
     }
 
-    function createHFListItem(item, type, container) {
+    function addFolderDnDContainerHandlers(container) {
+      if (container.dataset.folderDndBound === 'true') return;
+      container.addEventListener('dragover', handleFolderDragOver);
+      container.addEventListener('drop', handleFolderDrop);
+      container.dataset.folderDndBound = 'true';
+    }
+
+    function addFolderDnDItemHandlers(item) {
+      item.addEventListener('dragstart', handleFolderDragStart);
+      item.addEventListener('dragover', handleFolderDragOver);
+      item.addEventListener('drop', handleFolderDrop);
+      item.addEventListener('dragend', handleFolderDragEnd);
+    }
+
+    function handleFolderDragStart(e) {
+      isFolderSortDragging = true;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', this.dataset.id || '');
+    }
+
+    function handleFolderDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      const container = e.currentTarget.classList.contains('folder-sort-item')
+        ? e.currentTarget.parentElement
+        : e.currentTarget;
+      const draggingItem = container.querySelector('.folder-sort-item.dragging');
+      if (!draggingItem) return;
+
+      const afterElement = getFolderDragAfterElement(container, e.clientY);
+      const fixedItem = container.querySelector('.folder-sort-item[data-draggable="false"]');
+
+      if (afterElement == null) {
+        if (fixedItem) {
+          container.insertBefore(draggingItem, fixedItem);
+        } else {
+          container.appendChild(draggingItem);
+        }
+      } else {
+        container.insertBefore(draggingItem, afterElement);
+      }
+    }
+
+    function handleFolderDrop(e) {
+      e.preventDefault();
+    }
+
+    async function handleFolderDragEnd() {
+      this.classList.remove('dragging');
+      const container = this.parentElement;
+      if (!container) {
+        isFolderSortDragging = false;
+        return;
+      }
+
+      const updates = [...container.querySelectorAll('.folder-sort-item[data-draggable="true"]')]
+        .map((item, index) => ({
+          id: parseInt(item.dataset.id, 10),
+          order: index + 1
+        }))
+        .filter(update => Number.isFinite(update.id));
+
+      if (updates.length > 0) {
+        await db.transaction('rw', db.folders, async () => {
+          for (const update of updates) {
+            await db.folders.update(update.id, { order: update.order });
+          }
+        });
+
+        await loadFolderDropdowns();
+        await refreshSidebarAfterFolderChange();
+        showToast('↕️ フォルダ順を変更しました');
+      }
+
+      window.setTimeout(() => {
+        isFolderSortDragging = false;
+      }, 0);
+    }
+
+    function getFolderDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.folder-sort-item[data-draggable="true"]:not(.dragging)')];
+
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function createHFListItem(item, type, container, options = {}) {
+      const { extraClass = '' } = options;
       const div = document.createElement('div');
       const isEditing = (editMode === type && currentId === item.id);
-      div.className = `nav-item ${isEditing ? 'bg-yellow-50 border-yellow-300' : ''}`;
+      div.className = `nav-item ${extraClass} ${isEditing ? 'bg-yellow-50 border-yellow-300' : ''}`.trim();
       
       const targetDate = item.createdAt || item.sortDate;
       const dateStr = formatDate(targetDate);
@@ -2411,6 +2751,7 @@
       if (Number.isNaN(nextValue)) return;
       currentDraftFolderId = nextValue;
       document.getElementById('select-draft-folder').value = nextValue;
+      if (activeTab === 'settings') loadSettingsList();
     });
     document.getElementById('select-draft-folder').addEventListener('change', function() {
       const nextValue = parseInt(this.value);
