@@ -659,6 +659,8 @@
     const DEFAULT_FOLDER_NAME = '随時';
     const LEGACY_DEFAULT_FOLDER_NAME = '未分類';
     const QUICK_SNIPPET_LIMIT = 5;
+    const AUTO_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const MAX_INTERNAL_BACKUPS = 10;
     const CUSTOM_FOLDER_GROUP_KEY = '__custom_folder_group__';
     const YEAR_GROUP_KEY_PREFIX = '__year_group__::';
 
@@ -729,6 +731,14 @@
           order: i + 1
         });
       }
+    });
+    db.version(13).stores({
+      drafts: '++id, folderId, subject, content, sortDate, updatedAt, createdAt',
+      headers: '++id, name, content, sortDate, updatedAt, createdAt',
+      footers: '++id, name, content, sortDate, updatedAt, createdAt',
+      snippets: '++id, name, content, order, sortDate, updatedAt, createdAt',
+      folders: '++id, name, order, sortDate, updatedAt, createdAt',
+      backups: '++id, createdAt, reason'
     });
 
     // --- 2. エディター設定 ---
@@ -840,9 +850,11 @@
     let editMode = 'draft'; // 'draft' | 'header' | 'footer' | 'snippet'
     let currentDraftFolderId = null;
     let autoSaveTimer = null;
+    let autoBackupTimer = null;
     let deletePending = false; 
     let duplicatePending = false; 
     let isFolderSortDragging = false;
+    let isInternalBackupRunning = false;
     
     // ★★★ キャッシュ用変数 (ここが重要！) ★★★
     let cachedHeaderContent = '';
@@ -938,6 +950,7 @@
         ctrlSettings.classList.remove('hidden');
         listContainer.classList.add('settings-scroll-fix');
         loadSettingsList();
+        updateBackupPanel();
       }
     }
 
@@ -1364,6 +1377,7 @@
       const nextOrder = folders
         .filter(folder => folder.name !== DEFAULT_FOLDER_NAME)
         .reduce((max, folder) => Math.max(max, getFolderOrderValue(folder)), 0) + 1;
+      await createInternalBackup('フォルダ作成前', { silent: true });
       const id = await db.folders.add({
         name: trimmed,
         order: nextOrder,
@@ -1420,6 +1434,7 @@
 
       const targetFolder = customFolders[targetIndex];
 
+      await createInternalBackup('フォルダ並び替え前', { silent: true });
       await db.transaction('rw', db.folders, async () => {
         await db.folders.update(folder.id, { order: targetFolder.order });
         await db.folders.update(targetFolder.id, { order: folder.order });
@@ -1461,6 +1476,7 @@
         return;
       }
 
+      await createInternalBackup('フォルダ名変更前', { silent: true });
       await db.folders.update(folderId, {
         name: trimmed,
         updatedAt: new Date().toLocaleString('ja-JP'),
@@ -1490,6 +1506,7 @@
       if (!confirm(`「${folder.name}」を削除しますか？\n中の下書きは随時へ移動します。`)) return;
 
       const defaultFolder = await ensureDefaultFolder();
+      await createInternalBackup('フォルダ削除前', { silent: true });
       await db.transaction('rw', db.folders, db.drafts, async () => {
         await db.drafts.where('folderId').equals(folderId).modify(draft => {
           draft.folderId = defaultFolder.id;
@@ -1674,6 +1691,32 @@
       footerList.className = 'settings-list-items';
       footerSection.appendChild(footerList);
       footers.forEach(f => createHFListItem(f, 'footer', footerList, { extraClass: 'settings-hf-item' }));
+
+      const backupSection = document.createElement('div');
+      backupSection.className = 'settings-list-section bg-amber-50 border-amber-200';
+      backupSection.innerHTML = `
+        <div class="settings-list-title p-2 mb-2 bg-amber-100 text-amber-700 font-bold text-xs uppercase tracking-wider rounded">🛟 自動バックアップ</div>
+        <div id="backup-status" class="text-[11px] text-amber-700 mb-3 leading-relaxed">確認中...</div>
+        <select id="select-backup-restore" class="w-full p-2 mb-2 bg-white border border-amber-200 rounded-lg text-amber-900 font-bold text-xs focus:outline-none focus:border-amber-400">
+          <option value="">バックアップを選択</option>
+        </select>
+        <div class="grid grid-cols-1 gap-2">
+          <button onclick="manualInternalBackup()" class="w-full bg-white border border-amber-300 text-amber-700 text-xs font-bold py-2 px-2 rounded-lg hover:bg-amber-100 transition">
+            今すぐアプリ内バックアップ
+          </button>
+          <button onclick="restoreLatestInternalBackup()" class="w-full bg-white border border-red-200 text-red-500 text-xs font-bold py-2 px-2 rounded-lg hover:bg-red-50 transition">
+            選択したバックアップから復元
+          </button>
+          <button onclick="downloadLatestInternalBackup()" class="w-full bg-white border border-gray-300 text-gray-600 text-xs font-bold py-2 px-2 rounded-lg hover:bg-gray-100 transition">
+            選択したバックアップをJSON保存
+          </button>
+        </div>
+        <div class="text-[10px] text-amber-700/80 leading-relaxed mt-3">
+          24時間ごと・起動時・フォルダ操作前・削除前に自動保存します。念のため、ときどきJSON保存もしてください。
+        </div>
+      `;
+      listEl.appendChild(backupSection);
+      await updateBackupPanel();
     }
 
     function addFolderDnDContainerHandlers(container) {
@@ -1741,6 +1784,7 @@
         .filter(update => Number.isFinite(update.id));
 
       if (updates.length > 0) {
+        await createInternalBackup('フォルダ並び替え前', { silent: true });
         await db.transaction('rw', db.folders, async () => {
           for (const update of updates) {
             await db.folders.update(update.id, { order: update.order });
@@ -2246,6 +2290,8 @@
         return;
       }
 
+      await createInternalBackup('削除前', { silent: true });
+
       if(editMode === 'draft') {
         await db.drafts.delete(currentId);
         showToast('🗑️ 下書きを削除しました');
@@ -2317,6 +2363,7 @@
       const original = await table.get(currentId);
       
       if(original) {
+        await createInternalBackup('複製前', { silent: true });
         const nowObj = new Date();
         const displayDate = nowObj.toLocaleString('ja-JP'); 
         const sortDate = nowObj.toISOString();
@@ -2698,6 +2745,217 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function getBackupCounts(data) {
+      return {
+        drafts: Array.isArray(data?.drafts) ? data.drafts.length : 0,
+        folders: Array.isArray(data?.folders) ? data.folders.length : 0,
+        headers: Array.isArray(data?.headers) ? data.headers.length : 0,
+        footers: Array.isArray(data?.footers) ? data.footers.length : 0,
+        snippets: Array.isArray(data?.snippets) ? data.snippets.length : 0
+      };
+    }
+
+    function hasMeaningfulBackupData(data, counts = getBackupCounts(data)) {
+      const hasCustomFolder = (data?.folders || []).some(folder => folder.name !== DEFAULT_FOLDER_NAME);
+      return counts.drafts > 0 || counts.headers > 0 || counts.footers > 0 || counts.snippets > 0 || hasCustomFolder;
+    }
+
+    function isBackupDataLike(data) {
+      if (!data || typeof data !== 'object') return false;
+      return ['drafts', 'folders', 'headers', 'footers', 'snippets'].some(key => Array.isArray(data[key]));
+    }
+
+    function buildBackupHash(data) {
+      const text = JSON.stringify({
+        theme: data.theme,
+        fontSize: data.fontSize,
+        drafts: data.drafts,
+        folders: data.folders,
+        headers: data.headers,
+        footers: data.footers,
+        snippets: data.snippets
+      });
+      let hash = 0;
+      for (let i = 0; i < text.length; i += 1) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(i);
+        hash |= 0;
+      }
+      return `${hash}:${text.length}`;
+    }
+
+    async function getLatestInternalBackup() {
+      if (!db.backups) return null;
+      return db.backups.orderBy('createdAt').last();
+    }
+
+    async function getSelectedInternalBackup() {
+      const select = document.getElementById('select-backup-restore');
+      const selectedId = parseInt(select?.value || '', 10);
+      if (Number.isFinite(selectedId)) {
+        const selected = await db.backups.get(selectedId);
+        if (selected) return selected;
+      }
+      return getLatestInternalBackup();
+    }
+
+    async function pruneInternalBackups() {
+      const backups = await db.backups.orderBy('createdAt').toArray();
+      const deleteCount = backups.length - MAX_INTERNAL_BACKUPS;
+      if (deleteCount <= 0) return;
+
+      const deleteIds = backups.slice(0, deleteCount).map(backup => backup.id);
+      await db.backups.bulkDelete(deleteIds);
+    }
+
+    async function updateBackupPanel() {
+      const statusEl = document.getElementById('backup-status');
+      const selectEl = document.getElementById('select-backup-restore');
+      if (!statusEl || !db.backups) return;
+
+      const backups = await db.backups.orderBy('createdAt').reverse().toArray();
+      const latest = backups[0];
+      const count = backups.length;
+      if (!latest) {
+        statusEl.textContent = 'まだバックアップはありません。データが保存されると自動で作成されます。';
+        if (selectEl) {
+          selectEl.innerHTML = '<option value="">バックアップを選択</option>';
+        }
+        return;
+      }
+
+      const counts = latest.counts || getBackupCounts(latest.data);
+      statusEl.innerHTML = `最新: ${formatDate(latest.createdAt)} / ${latest.reason || '自動'}<br>下書き ${counts.drafts}件・フォルダ ${counts.folders}件・定型文 ${counts.snippets}件（保存世代 ${count}/${MAX_INTERNAL_BACKUPS}）`;
+
+      if (selectEl) {
+        const previousValue = selectEl.value;
+        selectEl.innerHTML = '';
+        backups.forEach((backup, index) => {
+          const option = document.createElement('option');
+          option.value = backup.id;
+          const backupCounts = backup.counts || getBackupCounts(backup.data);
+          option.textContent = `${index === 0 ? '最新: ' : ''}${formatDate(backup.createdAt)} / ${backup.reason || '自動'} / 下書き${backupCounts.drafts}件`;
+          selectEl.appendChild(option);
+        });
+
+        if (previousValue && backups.some(backup => String(backup.id) === previousValue)) {
+          selectEl.value = previousValue;
+        }
+      }
+    }
+
+    async function createInternalBackup(reason = '自動', options = {}) {
+      const { force = false, flush = false, silent = false } = options;
+      if (!db.backups || isInternalBackupRunning) return null;
+
+      isInternalBackupRunning = true;
+      try {
+        if (flush && autoSaveTimer) {
+          clearTimeout(autoSaveTimer);
+          autoSaveTimer = null;
+          await autoSave();
+        }
+
+        const data = await collectBackupData();
+        const counts = getBackupCounts(data);
+        if (!hasMeaningfulBackupData(data, counts)) {
+          await updateBackupPanel();
+          if (!silent) showToast('⚠️ バックアップするデータがまだありません');
+          return null;
+        }
+
+        const hash = buildBackupHash(data);
+        const lastHash = localStorage.getItem('mail_helper_last_internal_backup_hash');
+        if (!force && hash === lastHash) {
+          await updateBackupPanel();
+          return null;
+        }
+
+        const createdAt = new Date().toISOString();
+        data.date = createdAt;
+        const id = await db.backups.add({ createdAt, reason, counts, data });
+        localStorage.setItem('mail_helper_last_internal_backup_hash', hash);
+        await pruneInternalBackups();
+        await updateBackupPanel();
+
+        if (!silent) showToast('🛟 アプリ内バックアップ完了');
+        return id;
+      } catch (err) {
+        console.error('Internal backup failed', err);
+        if (!silent) showToast('⚠️ バックアップに失敗しました');
+        return null;
+      } finally {
+        isInternalBackupRunning = false;
+      }
+    }
+
+    function startAutoBackupTimer() {
+      if (autoBackupTimer) clearInterval(autoBackupTimer);
+      autoBackupTimer = setInterval(() => {
+        createInternalBackup('24時間ごと', { silent: true });
+      }, AUTO_BACKUP_INTERVAL_MS);
+    }
+
+    async function applyBackupData(data) {
+      if (!isBackupDataLike(data)) {
+        throw new Error('Invalid backup data');
+      }
+
+      await db.transaction('rw', db.drafts, db.folders, db.headers, db.footers, db.snippets, async () => {
+        await db.drafts.clear();
+        await db.folders.clear();
+        await db.headers.clear();
+        await db.footers.clear();
+        await db.snippets.clear();
+
+        if(Array.isArray(data.drafts) && data.drafts.length > 0) await db.drafts.bulkAdd(data.drafts);
+        if(Array.isArray(data.folders) && data.folders.length > 0) await db.folders.bulkAdd(data.folders);
+        if(Array.isArray(data.headers) && data.headers.length > 0) await db.headers.bulkAdd(data.headers);
+        if(Array.isArray(data.footers) && data.footers.length > 0) await db.footers.bulkAdd(data.footers);
+        if(Array.isArray(data.snippets) && data.snippets.length > 0) await db.snippets.bulkAdd(data.snippets);
+      });
+
+      await ensureDefaultFolder();
+      if(data.theme) setTheme(data.theme);
+      if(data.fontSize) changeBaseFontSize(data.fontSize);
+    }
+
+    async function manualInternalBackup() {
+      await createInternalBackup('手動', { force: true, flush: true });
+    }
+
+    async function downloadLatestInternalBackup() {
+      let backup = await getSelectedInternalBackup();
+      if (!backup) {
+        const id = await createInternalBackup('JSON保存前', { force: true, flush: true, silent: true });
+        backup = id ? await db.backups.get(id) : null;
+      }
+
+      if (!backup) {
+        showToast('⚠️ 保存できるバックアップがありません');
+        return;
+      }
+
+      downloadBackupJson(backup.data, `mailcopy_auto_backup_${getBackupTimestamp()}.json`);
+      showToast('📤 JSON保存しました');
+    }
+
+    async function restoreLatestInternalBackup() {
+      const backup = await getSelectedInternalBackup();
+      if (!backup) {
+        showToast('⚠️ 復元できるバックアップがありません');
+        return;
+      }
+
+      const counts = backup.counts || getBackupCounts(backup.data);
+      const message = `選択したバックアップから復元しますか？\n\n日時: ${formatDate(backup.createdAt)}\n理由: ${backup.reason || '自動'}\n下書き: ${counts.drafts}件 / フォルダ: ${counts.folders}件 / 定型文: ${counts.snippets}件\n\n現在のデータは上書きされます。`;
+      if (!confirm(message)) return;
+
+      await createInternalBackup('復元前', { force: true, flush: true, silent: true });
+      await applyBackupData(backup.data);
+      showToast('✅ バックアップから復元しました');
+      setTimeout(() => location.reload(), 1000);
+    }
+
     // データ移行
     async function exportData() {
       if(!confirm('全データをファイルとして保存しますか？')) return;
@@ -2716,17 +2974,8 @@
       reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target.result);
-          await db.transaction('rw', db.drafts, db.folders, db.headers, db.footers, db.snippets, async () => {
-            await db.drafts.clear(); await db.folders.clear(); await db.headers.clear(); await db.footers.clear(); await db.snippets.clear();
-            if(data.drafts) await db.drafts.bulkAdd(data.drafts);
-            if(data.folders) await db.folders.bulkAdd(data.folders);
-            if(data.headers) await db.headers.bulkAdd(data.headers);
-            if(data.footers) await db.footers.bulkAdd(data.footers);
-            if(data.snippets) await db.snippets.bulkAdd(data.snippets);
-          });
-          await ensureDefaultFolder();
-          if(data.theme) setTheme(data.theme);
-          if(data.fontSize) changeBaseFontSize(data.fontSize);
+          await createInternalBackup('復元前', { force: true, flush: false, silent: true });
+          await applyBackupData(data);
           
           showToast('✅ 復元完了！');
           setTimeout(() => location.reload(), 1000);
@@ -2889,7 +3138,7 @@
     }
 
     // 手動置換ボタン (ダブルクリック確認方式)
-    function performManualReplace() {
+    async function performManualReplace() {
         const searchTerm = document.getElementById('search-term').value;
         // 入力チェック (未入力なら何もしない)
         if (!searchTerm) {
@@ -2913,6 +3162,7 @@
         const replaceTerm = document.getElementById('replace-term').value;
         const checkSubject = document.getElementById('check-subject').checked;
 
+        await createInternalBackup('置換前', { silent: true });
         const count = executeReplace(searchTerm, replaceTerm, checkSubject);
         if (count > 0) {
             showToast(`✅ ${count}箇所を置換しました`);
@@ -2925,7 +3175,7 @@
 
     // ★追加★ AI整形（一括削除） - Delta直接操作版
     // ユーザー選択対応 + 設定保存 + ダブルクリック確認方式
-    function performAiCleanup() {
+    async function performAiCleanup() {
        let targets = "";
        if (document.getElementById('ai-target-full-quote').checked) targets += "“”";
        if (document.getElementById('ai-target-half-quote').checked) targets += "\"";
@@ -2953,6 +3203,7 @@
        // 2回目クリック: 実行
        // if(!confirm(...)) return; // 削除
 
+       await createInternalBackup('AI整形前', { silent: true });
        const delta = quill.getContents();
        // 削除対象を正規表現の文字クラス [] に変換
        const escapedTargets = targets.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -3017,6 +3268,9 @@
       lastSavedSnapshot.draftDate = getDraftDateIso();
       await switchTab('drafts');
       loadAiCleanupConfig();
+      await createInternalBackup('起動時', { silent: true });
+      startAutoBackupTimer();
+      updateBackupPanel();
     })();
   </script>
 </body>
